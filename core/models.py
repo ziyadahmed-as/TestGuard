@@ -71,6 +71,26 @@ class User(AbstractUser):
         INSTRUCTOR = 'INSTR', 'Instructor'
         STUDENT = 'STUD', 'Student'
 
+    # Override the groups field to resolve reverse accessor clash
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_name='core_user_groups',
+        related_query_name='core_user_group',
+    )
+    
+    # Override the user_permissions field to resolve reverse accessor clash
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name='core_user_permissions',
+        related_query_name='core_user_permission',
+    )
+
     role = models.CharField(
         max_length=5, 
         choices=Role.choices,
@@ -364,7 +384,7 @@ class UserDeviceSession(models.Model):
     class Meta:
         unique_together = ['user', 'device_hash']
         indexes = [
-            models.Index(fields=['user', 'is_active']),
+            models.Index(fields['user', 'is_active']),
             models.Index(fields=['last_activity']),
             models.Index(fields=['device_hash']),
             models.Index(fields=['first_seen']),
