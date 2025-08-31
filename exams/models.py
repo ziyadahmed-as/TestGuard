@@ -1076,4 +1076,6 @@ def manage_active_sessions(sender, instance, created, **kwargs):
         ActiveExamSession.objects.filter(
             user=instance.student,
             exam=instance.exam
-        ).update(is_active=False)
+        ).update(is_active=False) 
+      
+ 
