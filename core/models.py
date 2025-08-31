@@ -1,12 +1,15 @@
 import uuid
 import hashlib
 import json
+import pandas as pd
+from io import BytesIO
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.core.validators import MinLengthValidator, RegexValidator
+from django.core.validators import MinLengthValidator, RegexValidator, EmailValidator
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.core.files.base import ContentFile
 
 class Institution(models.Model):
     """Represents an educational institution or organization."""
@@ -42,8 +45,7 @@ class User(AbstractUser):
         ADMIN = 'ADMIN', 'System Administrator'
         INSTRUCTOR = 'INSTR', 'Instructor'
         STUDENT = 'STUD', 'Student'
-        PROCTOR = 'PROC', 'Proctor'
-        SUPPORT = 'SUPP', 'Support Staff'
+        # Removed PROCTOR role
 
     role = models.CharField(max_length=5, choices=Role.choices)
     institution = models.ForeignKey(
@@ -75,6 +77,111 @@ class User(AbstractUser):
         self.clean()
         super().save(*args, **kwargs)
 
+class BulkUserImport(models.Model):
+    """Tracks bulk user import operations by administrators."""
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        PROCESSING = 'PROCESSING', 'Processing'
+        COMPLETED = 'COMPLETED', 'Completed'
+        FAILED = 'FAILED', 'Failed'
+        PARTIAL = 'PARTIAL', 'Partial Success'
+
+    uploaded_by = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='user_imports',
+        limit_choices_to={'role': User.Role.ADMIN}
+    )
+    import_file = models.FileField(
+        upload_to='user_imports/%Y/%m/%d/',
+        help_text='Excel file containing user data'
+    )
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    total_records = models.PositiveIntegerField(default=0)
+    successful_imports = models.PositiveIntegerField(default=0)
+    failed_imports = models.PositiveIntegerField(default=0)
+    error_log = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'uploaded_by']),
+        ]
+
+    def __str__(self):
+        return f"User Import #{self.id} by {self.uploaded_by.email}"
+
+    def process_import(self):
+        """Process the bulk user import file."""
+        self.status = self.Status.PROCESSING
+        self.started_at = timezone.now()
+        self.save()
+
+        try:
+            # Read the Excel file
+            df = pd.read_excel(self.import_file.path)
+            self.total_records = len(df)
+            
+            success_count = 0
+            errors = []
+            
+            for index, row in df.iterrows():
+                try:
+                    self._create_user_from_row(row)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f"Row {index + 2}: {str(e)}")
+            
+            self.successful_imports = success_count
+            self.failed_imports = len(errors)
+            self.error_log = "\n".join(errors)
+            
+            if errors:
+                self.status = self.Status.PARTIAL if success_count > 0 else self.Status.FAILED
+            else:
+                self.status = self.Status.COMPLETED
+                
+        except Exception as e:
+            self.status = self.Status.FAILED
+            self.error_log = f"File processing error: {str(e)}"
+        
+        self.completed_at = timezone.now()
+        self.save()
+
+    def _create_user_from_row(self, row):
+        """Create a user from a single row of import data."""
+        email = str(row.get('email', '')).strip().lower()
+        if not email:
+            raise ValidationError("Email is required")
+        
+        if User.objects.filter(email=email, institution=self.uploaded_by.institution).exists():
+            raise ValidationError(f"User with email {email} already exists")
+        
+        # Set default password (users will reset it)
+        password = User.objects.make_random_password()
+        
+        user = User(
+            email=email,
+            username=email,  # Using email as username
+            first_name=str(row.get('first_name', '')).strip(),
+            last_name=str(row.get('last_name', '')).strip(),
+            role=str(row.get('role', User.Role.STUDENT)).strip().upper(),
+            institution=self.uploaded_by.institution,
+            title=str(row.get('title', '')).strip(),
+            department=str(row.get('department', '')).strip(),
+            is_active=bool(row.get('is_active', True))
+        )
+        
+        user.set_password(password)
+        user.full_clean()
+        user.save()
+        
+        return user
+
+# ... [UserDeviceSession, ActiveExamSession, AcademicDepartment, Course, Section, Enrollment models remain similar] ...
 class UserDeviceSession(models.Model):
     """
     Tracks active device sessions for exam concurrency control.
