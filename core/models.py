@@ -1,9 +1,12 @@
 import uuid
+import hashlib
+import json
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinLengthValidator, RegexValidator
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 class Institution(models.Model):
     """Represents an educational institution or organization."""
@@ -72,38 +75,151 @@ class User(AbstractUser):
         self.clean()
         super().save(*args, **kwargs)
 
-class UserDevice(models.Model):
-    """Tracks and manages user devices for exam security and concurrency control."""
+class UserDeviceSession(models.Model):
+    """
+    Tracks active device sessions for exam concurrency control.
+    Created dynamically when users access exams from devices.
+    """
     user = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
-        related_name='devices'
+        related_name='device_sessions'
     )
-    device_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    device_name = models.CharField(max_length=100, blank=True)
-    browser_info = models.CharField(max_length=200, blank=True)
-    os_info = models.CharField(max_length=100, blank=True)
+    device_hash = models.CharField(
+        max_length=255,
+        help_text="Hash of device fingerprint for anonymous identification"
+    )
+    browser_name = models.CharField(max_length=100, blank=True)
+    browser_version = models.CharField(max_length=50, blank=True)
+    os_name = models.CharField(max_length=100, blank=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)
-    is_trusted = models.BooleanField(default=False)
-    last_used = models.DateTimeField(auto_now=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this device session is currently active"
+    )
+    user_agent = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ['user', 'device_id']
+        unique_together = ['user', 'device_hash']
         indexes = [
-            models.Index(fields=['user', 'is_trusted']),
-            models.Index(fields=['device_id']),
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['last_activity']),
+            models.Index(fields=['device_hash']),
         ]
-        ordering = ['-last_used']
+        ordering = ['-last_activity']
 
     def __str__(self):
-        return f"{self.user.email} - {self.device_id}"
+        return f"{self.user.email} - {self.device_hash[:8]}"
 
     @property
-    def is_active(self):
-        """Check if device has been used recently."""
-        return (timezone.now() - self.last_used).days < 30
+    def should_timeout(self):
+        """Check if session should timeout due to inactivity."""
+        return (timezone.now() - self.last_activity).seconds > 3600  # 1 hour
 
+    def refresh_activity(self):
+        """Update the last activity timestamp."""
+        self.last_activity = timezone.now()
+        self.save(update_fields=['last_activity'])
+
+    def deactivate(self):
+        """Deactivate this device session."""
+        self.is_active = False
+        self.save(update_fields=['is_active', 'last_activity'])
+
+    @classmethod
+    def create_from_request(cls, user, request):
+        """Create a device session from HTTP request data."""
+        device_hash = cls.generate_device_hash(request)
+        
+        device_session, created = cls.objects.get_or_create(
+            user=user,
+            device_hash=device_hash,
+            defaults={
+                'browser_name': request.META.get('HTTP_SEC_CH_UA', ''),
+                'browser_version': request.META.get('HTTP_SEC_CH_UA_VERSION', ''),
+                'os_name': request.META.get('HTTP_SEC_CH_UA_PLATFORM', ''),
+                'ip_address': cls.get_client_ip(request),
+                'user_agent': request.META.get('HTTP_USER_AGENT', '')
+            }
+        )
+        
+        if not created:
+            device_session.refresh_activity()
+            
+        return device_session
+
+    @staticmethod
+    def generate_device_hash(request):
+        """Generate anonymous device fingerprint hash."""
+        device_data = {
+            'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+            'accept_language': request.META.get('HTTP_ACCEPT_LANGUAGE', ''),
+            'sec_ch_ua': request.META.get('HTTP_SEC_CH_UA', ''),
+            'sec_ch_ua_platform': request.META.get('HTTP_SEC_CH_UA_PLATFORM', ''),
+        }
+        
+        device_json = json.dumps(device_data, sort_keys=True)
+        return hashlib.sha256(
+            f"{device_json}{settings.SECRET_KEY}".encode()
+        ).hexdigest()
+
+    @staticmethod
+    def get_client_ip(request):
+        """Extract client IP address from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0]
+        return request.META.get('REMOTE_ADDR')
+
+class ActiveExamSession(models.Model):
+    """
+    Tracks currently active exam sessions for concurrency control.
+    Ensures one active exam session per user per exam.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='active_exam_sessions')
+    exam = models.ForeignKey('exams.Exam', on_delete=models.CASCADE, related_name='active_sessions')
+    device_session = models.ForeignKey(UserDeviceSession, on_delete=models.CASCADE, related_name='exam_sessions')
+    attempt = models.OneToOneField('exams.ExamAttempt', on_delete=models.CASCADE, related_name='active_session')
+    session_token = models.UUIDField(default=uuid.uuid4, unique=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['user', 'exam']  # One active exam per user
+        indexes = [
+            models.Index(fields=['session_token']),
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['last_activity']),
+            models.Index(fields=['device_session']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.exam.title}"
+
+    def is_valid(self, current_device_hash):
+        """Check if session is valid for the current device."""
+        return (self.is_active and 
+                self.device_session.device_hash == current_device_hash and
+                (timezone.now() - self.last_activity).seconds < 300)  # 5-minute activity window
+
+    def refresh_activity(self):
+        """Update the last activity timestamp."""
+        self.last_activity = timezone.now()
+        self.save(update_fields=['last_activity'])
+
+    def terminate(self, reason="Session terminated"):
+        """Terminate this exam session."""
+        self.is_active = False
+        self.save(update_fields=['is_active', 'last_activity'])
+        
+        # Also terminate the associated attempt
+        if self.attempt:
+            self.attempt.terminate_session(reason)
+
+# ... [AcademicDepartment, Course, Section, Enrollment models remain unchanged] ...
 class AcademicDepartment(models.Model):
     """Represents an academic department within an institution."""
     institution = models.ForeignKey(
