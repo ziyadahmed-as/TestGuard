@@ -5,25 +5,36 @@ from . import views
 app_name = 'exams'
 
 urlpatterns = [
+    # Dashboard
+    path('dashboard/', views.dashboard, name='dashboard'),
+    
     # Exam management URLs
     path('', views.exam_list, name='exam_list'),
     path('create/', views.exam_create, name='exam_create'),
-    path('<int:exam_id>/', views.exam_detail, name='exam_detail'),
+    path('<int:pk>/', views.exam_detail, name='exam_detail'),
     path('<int:exam_id>/edit/', views.exam_edit, name='exam_edit'),
-    path('<int:exam_id>/questions/', views.exam_questions, name='exam_questions'),
-    path('<int:exam_id>/questions/remove/<int:question_id>/', views.exam_question_remove, name='exam_question_remove'),
-    path('<int:exam_id>/questions/reorder/', views.exam_question_reorder, name='exam_question_reorder'),
-    path('<int:exam_id>/monitoring/', views.monitoring_events, name='monitoring_events'),
+    path('<int:pk>/delete/', views.exam_delete, name='exam_delete'),
+    path('<int:exam_pk>/questions/', views.exam_question_manage, name='exam_question_manage'),
+    path('<int:exam_pk>/questions/remove/<int:question_pk>/', views.exam_question_remove, name='exam_question_remove'),
     
     # Exam taking URLs
-    path('<int:exam_id>/start/', views.exam_attempt_start, name='exam_attempt_start'),
-    path('attempt/<int:attempt_id>/password/', views.exam_password, name='exam_password'),
-    path('attempt/<int:attempt_id>/take/', views.exam_take, name='exam_take'),
-    path('attempt/<int:attempt_id>/review/', views.exam_review, name='exam_review'),
-    path('attempt/<int:attempt_id>/submit/', views.exam_submit, name='exam_submit'),
-    path('attempt/<int:attempt_id>/results/', views.exam_results, name='exam_results'),
+    path('<int:exam_pk>/start/', views.exam_start, name='exam_start'),
+    path('attempt/<int:attempt_pk>/take/', views.exam_take, name='exam_take'),
+    path('attempt/<int:attempt_pk>/results/', views.exam_results, name='exam_results'),
     
-    # AJAX URLs
-    path('attempt/auto-save/', views.exam_auto_save, name='exam_auto_save'),
-    path('attempt/log-event/', views.log_monitoring_event, name='log_monitoring_event'),
+    # Question Bank URLs
+    path('question-banks/', views.question_bank_list, name='question_bank_list'),
+    path('question-banks/create/', views.question_bank_create, name='question_bank_create'),
+    path('question-banks/<int:pk>/', views.question_bank_detail, name='question_bank_detail'),
+    
+    # Bulk Import URLs
+    path('bulk-import/', views.bulk_question_import, name='bulk_question_import'),
+    
+    # Monitoring URLs
+    path('monitoring/', views.monitoring_events, name='monitoring_events'),
+    path('monitoring/<int:pk>/review/', views.monitoring_event_review, name='monitoring_event_review'),
+    
+    # AJAX/API URLs
+    path('attempt/<int:attempt_pk>/save-draft/<int:question_pk>/', views.save_response_draft, name='save_response_draft'),
+    path('attempt/<int:attempt_pk>/time-remaining/', views.exam_time_remaining, name='exam_time_remaining'),
 ]

@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from .models import (
     BulkQuestionImport, QuestionBank, Question, Exam, 
-    ExamQuestion, ExamAttempt, QuestionResponse, MonitoringEvent
+    ExamQuestion, ExamAttempt, QuestionResponse, MonitoringEvent, UserDeviceSession
 )
 from .forms import (
     BulkQuestionImportForm, QuestionBankForm, QuestionForm, ExamForm,
@@ -115,6 +115,12 @@ def exam_update(request, pk):
         'title': f'Update {exam.title}',
         'submit_text': 'Update Exam'
     })
+
+@login_required
+@user_passes_test(is_admin_or_instructor)
+def exam_edit(request, exam_id):
+    """Edit an exam - alias for exam_update to fix URL routing issue"""
+    return exam_update(request, pk=exam_id)
 
 @login_required
 def exam_detail(request, pk):
@@ -573,7 +579,8 @@ def exam_time_remaining(request, attempt_pk):
         'time_remaining': attempt.time_remaining,
         'status': attempt.status
     })
-# exams/views.py (add this to your existing dashboard view)
+
+# Dashboard View
 @login_required
 def dashboard(request):
     context = {}
@@ -643,10 +650,10 @@ def dashboard(request):
         }
     
     return render(request, 'exams/dashboard.html', context)
+
 # Error handling
 def handler404(request, exception):
     return render(request, 'exams/404.html', status=404)
 
 def handler500(request):
     return render(request, 'exams/500.html', status=500)
-

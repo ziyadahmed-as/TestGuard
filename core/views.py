@@ -42,6 +42,45 @@ def check_role_access(user, required_role):
         return user.role == User.Role.STUDENT
     return False
 
+# Global Dashboard View
+@login_required
+def global_dashboard(request):
+    """Global dashboard that redirects to appropriate dashboard based on user role"""
+    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
+        return redirect('exams:dashboard')
+    else:
+        # For students, show the core dashboard
+        return core_dashboard(request)
+
+# Core Dashboard View
+@login_required
+def core_dashboard(request):
+    """Core module dashboard"""
+    # Get statistics
+    student_count = User.objects.filter(role=User.Role.STUDENT).count()
+    instructor_count = User.objects.filter(role=User.Role.INSTRUCTOR).count()
+    course_count = Course.objects.count()
+    
+    # Import Exam model if available
+    try:
+        from exams.models import Exam
+        exam_count = Exam.objects.count()
+    except ImportError:
+        exam_count = 0
+    
+    # Get recent activity (placeholder - you'll need to implement this)
+    recent_activity = []
+    
+    context = {
+        'student_count': student_count,
+        'instructor_count': instructor_count,
+        'course_count': course_count,
+        'exam_count': exam_count,
+        'recent_activity': recent_activity,
+    }
+    
+    return render(request, 'core/dashboard.html', context)
+
 # Profile View
 @login_required
 def profile(request):
@@ -645,51 +684,6 @@ def enrollment_update(request, pk):
         'submit_text': 'Update Enrollment',
         'cancel_url': 'enrollment_list'
     })
-
-# Dashboard View
-@login_required
-def dashboard(request):
-    context = {}
-    
-    if is_admin(request.user):
-        # Admin dashboard
-        context.update({
-            'institution_count': Institution.objects.count(),
-            'user_count': User.objects.count(),
-            'active_user_count': User.objects.filter(is_active=True).count(),
-            'recent_users': User.objects.order_by('-date_joined')[:5],
-            'recent_logs': AdminUserCreationLog.objects.select_related(
-                'created_by', 'institution'
-            ).order_by('-created_at')[:5]
-        })
-    
-    elif is_instructor(request.user):
-        # Instructor dashboard
-        teaching_sections = Section.objects.filter(
-            instructor=request.user, is_active=True
-        )
-        context.update({
-            'teaching_sections': teaching_sections,
-            'total_students': Enrollment.objects.filter(
-                section__in=teaching_sections, is_active=True
-            ).count(),
-            'recent_enrollments': Enrollment.objects.filter(
-                section__instructor=request.user
-            ).select_related('student', 'section').order_by('-enrolled_on')[:5]
-        })
-    
-    elif is_student(request.user):
-        # Student dashboard
-        enrollments = Enrollment.objects.filter(
-            student=request.user, is_active=True
-        ).select_related('section', 'section__course', 'section__instructor')
-        context.update({
-            'current_enrollments': enrollments,
-            'total_courses': enrollments.count(),
-            'upcoming_activities': []  # Would be populated with exam schedules, etc.
-        })
-    
-    return render(request, 'dashboard.html', context)
 
 # API Views for AJAX calls
 @login_required
