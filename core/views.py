@@ -154,6 +154,95 @@ def institution_update(request, pk):
         'submit_text': 'Update Institution',
         'cancel_url': 'institution_list'
     })
+# core/views.py (add to your global_dashboard view)
+@login_required
+def global_dashboard(request):
+    context = {}
+    
+    # Common user info
+    context['user'] = request.user
+    
+    # Role-specific data
+    if request.user.role == User.Role.STUDENT:
+        # Get student enrollments
+        enrollments = Enrollment.objects.filter(
+            student=request.user, is_active=True
+        ).select_related('section', 'section__course', 'section__instructor')
+        context['enrollments'] = enrollments
+        
+        # Get student exam stats
+        student_attempts = ExamAttempt.objects.filter(student=request.user)
+        completed_attempts = student_attempts.filter(
+            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
+        )
+        
+        # Calculate average score
+        scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
+        average_score = sum(scores) / len(scores) if scores else 0
+        
+        context['completed_exams'] = completed_attempts.count()
+        context['average_score'] = round(average_score, 1)
+        
+        # Get upcoming exams for student's sections
+        enrolled_sections = enrollments.values_list('section_id', flat=True)
+        context['upcoming_exams'] = Exam.objects.filter(
+            sections__in=enrolled_sections, 
+            start_date__gte=timezone.now()
+        ).order_by('start_date')[:5]
+        
+    elif request.user.role == User.Role.INSTRUCTOR:
+        # Get teaching sections
+        teaching_sections = Section.objects.filter(
+            instructor=request.user, is_active=True
+        )
+        context['teaching_sections'] = teaching_sections
+        
+        # Get student count
+        context['total_students'] = Enrollment.objects.filter(
+            section__in=teaching_sections, is_active=True
+        ).count()
+        
+        # Get exam stats
+        context['created_exams'] = Exam.objects.filter(created_by=request.user).count()
+        context['pending_reviews'] = MonitoringEvent.objects.filter(
+            reviewed_status=MonitoringEvent.ReviewedStatus.PENDING,
+            attempt__exam__created_by=request.user
+        ).count()
+        
+        # Get upcoming exams
+        context['upcoming_exams'] = Exam.objects.filter(
+            created_by=request.user,
+            start_date__gte=timezone.now()
+        ).order_by('start_date')[:5]
+        
+    else:  # Admin
+        # Get system stats
+        context['institution_count'] = Institution.objects.count()
+        context['user_count'] = User.objects.count()
+        context['active_user_count'] = User.objects.filter(is_active=True).count()
+        
+        # Get exam count (if exams app is available)
+        try:
+            from exams.models import Exam
+            context['exam_count'] = Exam.objects.count()
+        except ImportError:
+            context['exam_count'] = 0
+            
+        # Get recent users and logs
+        context['recent_users'] = User.objects.order_by('-date_joined')[:5]
+        context['recent_logs'] = AdminUserCreationLog.objects.select_related(
+            'created_by', 'institution'
+        ).order_by('-created_at')[:5]
+        
+        # Get upcoming exams
+        context['upcoming_exams'] = Exam.objects.filter(
+            start_date__gte=timezone.now()
+        ).order_by('start_date')[:5]
+    
+    # Add recent activity (placeholder - you'll need to implement this)
+    context['recent_activity'] = []
+    
+    return render(request, 'core/global_dashboard.html', context)
 
 @login_required
 @user_passes_test(is_admin)
