@@ -1,0 +1,106 @@
+<!-- templates/exams/monitoring_events.html -->
+{% extends 'base.html' %}
+
+{% block title %}Monitoring Events - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Monitoring Events for {{ exam.title }}</h1>
+        <a href="{% url 'exams:exam_detail' exam.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md transition-colors">
+            Back to Exam
+        </a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-800">All Events</h2>
+                <span class="text-sm text-gray-500">{{ events|length }} event{{ events|pluralize }}</span>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            {% if events %}
+            <div class="space-y-4">
+                {% for event in events %}
+                <div class="border border-gray-200 rounded-md p-4 {% if event.severity >= 8 %}bg-red-50 border-red-200{% elif event.severity >= 5 %}bg-yellow-50 border-yellow-200{% else %}bg-blue-50 border-blue-200{% endif %}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-800">{{ event.get_event_type_display }}</h3>
+                            <p class="text-sm text-gray-500">by {{ event.attempt.student.get_full_name|default:event.attempt.student.email }} at {{ event.timestamp|date:"M d, Y H:i" }}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full 
+                            {% if event.reviewed_status == 'PENDING' %}bg-gray-100 text-gray-800
+                            {% elif event.reviewed_status == 'REVIEWING' %}bg-blue-100 text-blue-800
+                            {% elif event.reviewed_status == 'APPROVED' %}bg-green-100 text-green-800
+                            {% elif event.reviewed_status == 'VIOLATION' %}bg-red-100 text-red-800
+                            {% else %}bg-purple-100 text-purple-800{% endif %}">
+                            {{ event.get_reviewed_status_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-600"><strong>Severity:</strong> {{ event.severity }}/10</p>
+                            <p class="text-sm text-gray-600"><strong>Description:</strong> {{ event.description }}</p>
+                        </div>
+                        <div>
+                            {% if event.reviewed_status != 'PENDING' and event.reviewed_status != 'REVIEWING' %}
+                                <p class="text-sm text-gray-600"><strong>Reviewed by:</strong> {{ event.reviewed_by.get_full_name|default:event.reviewed_by.email }}</p>
+                                <p class="text-sm text-gray-600"><strong>Reviewed at:</strong> {{ event.reviewed_at|date:"M d, Y H:i" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if event.reviewed_status == 'PENDING' or event.reviewed_status == 'REVIEWING' %}
+                    <form method="post" class="mt-3 pt-3 border-t border-gray-200">
+                        {% csrf_token %}
+                        <input type="hidden" name="event_id" value="{{ event.id }}">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                            <div>
+                                <label for="id_reviewed_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select name="reviewed_status" id="id_reviewed_status" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="APPROVED" {% if event.reviewed_status == 'APPROVED' %}selected{% endif %}>Approved - No Issue</option>
+                                    <option value="VIOLATION" {% if event.reviewed_status == 'VIOLATION' %}selected{% endif %}>Violation Confirmed</option>
+                                    <option value="FALSE_ALARM" {% if event.reviewed_status == 'FALSE_ALARM' %}selected{% endif %}>False Alarm</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="id_action_taken" class="block text-sm font-medium text-gray-700 mb-1">Action Taken</label>
+                                <input type="text" name="action_taken" id="id_action_taken" value="{{ event.action_taken }}" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_review_notes" class="block text-sm font-medium text-gray-700 mb-1">Review Notes</label>
+                            <textarea name="review_notes" id="id_review_notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">{{ event.review_notes }}</textarea>
+                        </div>
+                        
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-colors">
+                            Update Review
+                        </button>
+                    </form>
+                    {% else %}
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <p class="text-sm text-gray-600"><strong>Review Notes:</strong> {{ event.review_notes }}</p>
+                            <p class="text-sm text-gray-600"><strong>Action Taken:</strong> {{ event.action_taken }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No monitoring events</h3>
+                <p class="text-gray-500">No monitoring events have been recorded for this exam yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

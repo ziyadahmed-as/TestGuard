@@ -1,0 +1,155 @@
+<!-- templates/core/profile.html -->
+{% extends 'base.html' %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">My Profile</h1>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-5 bg-gray-50 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-16 w-16">
+                        <div class="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span class="text-blue-800 text-xl font-medium">{{ user.first_name|first }}{{ user.last_name|first }}</span>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h1 class="text-2xl font-bold text-gray-800">{{ user.get_full_name }}</h1>
+                        <p class="text-gray-600">{{ user.title }}</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-xs font-medium rounded-full 
+                    {% if user.role == 'ADMIN' %}bg-purple-100 text-purple-800
+                    {% elif user.role == 'INSTR' %}bg-blue-100 text-blue-800
+                    {% else %}bg-green-100 text-green-800{% endif %}">
+                    {{ user.get_role_display }}
+                </span>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">Personal Information</h2>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">First Name:</span>
+                            <span class="font-medium">{{ user.first_name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Last Name:</span>
+                            <span class="font-medium">{{ user.last_name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Email:</span>
+                            <span class="font-medium">{{ user.email }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Title:</span>
+                            <span class="font-medium">{{ user.title|default:"Not specified" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Department:</span>
+                            <span class="font-medium">{{ user.department|default:"Not specified" }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">Account Information</h2>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Institution:</span>
+                            <span class="font-medium">{{ user.institution.name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Status:</span>
+                            <span class="font-medium">{{ user.is_active|yesno:"Active,Inactive" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Email Verified:</span>
+                            <span class="font-medium">{{ user.email_verified|yesno:"Yes,No" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">MFA Enabled:</span>
+                            <span class="font-medium">{{ user.mfa_enabled|yesno:"Yes,No" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Last Login:</span>
+                            <span class="font-medium">{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <a href="{% url 'core:dashboard' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md transition-colors">
+                    Back to Dashboard
+                </a>
+                <a href="{% url 'core:user_edit' user.id %}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors">
+                    Edit Profile
+                </a>
+                <a href="{% url 'password_change' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                    Change Password
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Sessions -->
+    <div class="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">Active Device Sessions</h2>
+        </div>
+        <div class="p-6">
+            {% if user.device_sessions.all %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Browser</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for session in user.device_sessions.all|slice:":5" %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ session.device_hash|slice:":12" }}...</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ session.browser_name }} {{ session.browser_version }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ session.os_name }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ session.ip_address }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ session.last_activity|timesince }} ago</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full {% if session.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ session.is_active|yesno:"Active,Inactive" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-gray-500">No device sessions found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

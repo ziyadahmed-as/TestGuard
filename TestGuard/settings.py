@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'core',
     'exams',
     'analytics',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
@@ -54,10 +55,15 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'TestGuard.urls'
 
+# Authentication settings
+LOGIN_URL = 'core:login'
+LOGIN_REDIRECT_URL = 'core:dashboard'
+LOGOUT_REDIRECT_URL = 'core:login'
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -101,6 +107,15 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Static and media files settings
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Media files (settings for user-uploaded content)
+# https://docs.djangoproject.com/en/5.2/topics/files/
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

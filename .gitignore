@@ -1,0 +1,39 @@
+# ignore envaroment files
+.schola
+rity.env
+.env
+# ignore macOS system files
+.DS_Store
+# ignore node modules
+node_modules/
+# ignore log files
+*.log
+# ignore build output
+dist/
+build/
+out/
+# ignore coverage reports
+coverage/
+.nyc_output/
+# ignore IDE specific files
+.vscode/
+.idea/  
+*.sublime-project
+*.sublime-workspace
+# ignore temporary files
+*.tmp
+*.swp
+*~
+# ignore test output
+test-output/
+test-results/
+# ignore compiled files
+*.class
+*.o
+#python cache
+__pycache__/    
+*.pyc
+*.pyo
+# ignore package files
+*.tgz
+*.zip

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Academic Management System{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3B82F6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        secondary: {
+                            50: '#eef2ff',
+                            500: '#6366F1',
+                            600: '#4f46e5',
+                        },
+                        success: {
+                            50: '#ecfdf5',
+                            500: '#10B981',
+                            600: '#059669',
+                        },
+                        warning: {
+                            50: '#fffbeb',
+                            500: '#F59E0B',
+                            600: '#d97706',
+                        },
+                        danger: {
+                            50: '#fef2f2',
+                            500: '#EF4444',
+                            600: '#dc2626',
+                        },
+                        gray: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .sidebar-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        .content-transition {
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .notification-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #EF4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+    <!-- Mobile sidebar backdrop (hidden by default) -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-40 hidden md:hidden"></div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+        <div class="flex items-center justify-between p-4">
+            <div class="flex items-center">
+                <button onclick="toggleSidebar()" class="md:hidden mr-4 text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-md p-1">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h1 class="text-xl font-semibold text-gray-800">Academic Management System</h1>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <!-- Notifications -->
+                <div class="relative">
+                    <button class="p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-full">
+                        <i class="fas fa-bell text-lg"></i>
+                        <span class="notification-dot"></span>
+                    </button>
+                </div>
+                
+                <!-- User menu -->
+                <div class="relative">
+                    <button onclick="toggleUserMenu()" class="flex items-center focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-full">
+                        <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium shadow-md">
+                            {{ request.user.first_name|first }}{{ request.user.last_name|first }}
+                        </div>
+                        <div class="ml-2 hidden md:block">
+                            <p class="text-sm font-medium text-gray-800">{{ request.user.get_full_name }}</p>
+                            <p class="text-xs text-gray-500 capitalize">{{ request.user.get_role_display }}</p>
+                        </div>
+                    </button>
+                    
+                    <!-- User dropdown menu -->
+                    <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200 divide-y divide-gray-100">
+                        <div class="py-1">
+                            <a href="{% url 'dashboard' %}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-tachometer-alt w-5 mr-2 text-gray-400"></i>Dashboard
+                            </a>
+                            <a href="{% url 'profile' %}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-user w-5 mr-2 text-gray-400"></i>Profile
+                            </a>
+                        </div>
+                        <div class="py-1">
+                            <a href="{% url 'logout' %}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt w-5 mr-2 text-gray-400"></i>Logout
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="bg-white shadow-md sidebar-transition w-64 fixed inset-y-0 left-0 z-20 transform -translate-x-full md:translate-x-0 pt-16 md:pt-0">
+            <div class="h-full overflow-y-auto">
+                <nav class="mt-6 px-4">
+                    <!-- Dashboard Link (Visible to all roles) -->
+                    <a href="{% url 'dashboard' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200
+                     {% if request.resolver_match.url_name == 'dashboard' %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-tachometer-alt w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if request.resolver_match.url_name == 'dashboard' %}text-primary-600{% endif %}"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    
+                    <!-- ADMIN ONLY: Administration Section -->
+                    {% if request.user.role == 'admin' %}
+                    
+                     {% endif %}
+                    <!-- ADMIN & INSTRUCTOR: Tools Section -->
+                    {% if request.user.role == 'admin' or request.user.role == 'instructor' %}
+                    <div class="px-2 py-2 text-gray-500 text-xs font-semibold uppercase tracking-wider mt-6">Administration</div>
+                    <a href="{% url 'institution_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'institution' in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-university w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'institution' in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Institutions</span>
+                    </a>
+                    <a href="{% url 'institution_create' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if request.resolver_match.url_name == 'institution_create' %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-plus-circle w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if request.resolver_match.url_name == 'institution_create' %}text-primary-600{% endif %}"></i>
+                        <span>Add Institution</span>
+                    </a>
+                    <a href="{% url 'user_list' %}" class="flex items-center px-4 py-3 text-gray-70 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'user' in request.resolver_match.url_name and 'profile' not in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-users w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'user' in request.resolver_match.url_name and 'profile' not in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Users</span>
+                    </a>
+                    <a href="{% url 'user_create' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if request.resolver_match.url_name == 'user_create' %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-user-plus w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if request.resolver_match.url_name == 'user_create' %}text-primary-600{% endif %}"></i>
+                        <span>Add User</span>
+                    </a>
+                    <a href="{% url 'user_creation_logs' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if request.resolver_match.url_name == 'user_creation_logs' %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-history w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if request.resolver_match.url_name == 'user_creation_logs' %}text-primary-600{% endif %}"></i>
+                        <span>Creation Logs</span>
+                    </a>
+                    <a href="{% url 'bulk_user_upload' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if request.resolver_match.url_name == 'bulk_user_upload' %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-upload w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if request.resolver_match.url_name == 'bulk_user_upload' %}text-primary-600{% endif %}"></i>
+                        <span>Bulk Upload</span>
+                    </a>
+                   
+                    
+                    <!-- Academic Section (Visible to all roles) -->
+                    <div class="px-2 py-2 text-gray-500 text-xs font-semibold uppercase tracking-wider {% if request.user.role == 'admin' %}mt-6{% else %}mt-6{% endif %}">Academic</div>
+                    <a href="{% url 'department_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'department' in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-building w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'department' in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Departments</span>
+                    </a>
+                    <a href="{% url 'course_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'course' in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-book w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'course' in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Courses</span>
+                    </a>
+                    
+                    <!-- Sections (Visible to all, but create/edit based on role) -->
+                    <a href="{% url 'section_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'section' in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-chalkboard w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'section' in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Sections</span>
+                    </a>
+                    
+                    <!-- Enrollments (Visible to all, but create/edit based on role) -->
+                    <a href="{% url 'enrollment_list' %}" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200 {% if 'enrollment' in request.resolver_match.url_name %}bg-primary-50 text-primary-600 font-medium{% endif %}">
+                        <i class="fas fa-user-graduate w-5 mr-3 text-gray-400 group-hover:text-primary-600 {% if 'enrollment' in request.resolver_match.url_name %}text-primary-600{% endif %}"></i>
+                        <span>Enrollments</span>
+                    </a>
+                    <div class="px-2 py-2 text-gray-500 text-xs font-semibold uppercase tracking-wider mt-6">Tools</div>
+                    <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200">
+                        <i class="fas fa-download w-5 mr-3 text-gray-400 group-hover:text-primary-600"></i>
+                        <span>Export Data</span>
+                    </a>
+                    {% endif %}
+                    
+                    <!-- STUDENT ONLY: Student Resources Section -->
+                    {% if request.user.role == 'student' %}
+                    <div class="px-2 py-2 text-gray-500 text-xs font-semibold uppercase tracking-wider mt-6">My Resources</div>
+                    <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200">
+                        <i class="fas fa-tasks w-5 mr-3 text-gray-400 group-hover:text-primary-600"></i>
+                        <span>Assignments</span>
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200">
+                        <i class="fas fa-calendar w-5 mr-3 text-gray-400 group-hover:text-primary-600"></i>
+                        <span>Schedule</span>
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1 transition-colors duration-200">
+                        <i class="fas fa-chart-bar w-5 mr-3 text-gray-400 group-hover:text-primary-600"></i>
+                        <span>Grades</span>
+                    </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content" class="content-transition flex-1 md:ml-64 pt-16 min-h-screen">
+            <div class="p-6">
+                <!-- Breadcrumbs -->
+                {% block breadcrumbs %}
+                <nav class="flex mb-6" aria-label="Breadcrumb">
+                    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                        <li class="inline-flex items-center">
+                            <a href="{% url 'dashboard' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-primary-600">
+                                <i class="fas fa-home mr-2"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        {% if breadcrumbs %}
+                            {% for crumb in breadcrumbs %}
+                            <li aria-current="page">
+                                <div class="flex items-center">
+                                    <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                                    <a href="{{ crumb.url }}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary-600 md:ml-2">{{ crumb.name }}</a>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        {% endif %}
+                    </ol>
+                </nav>
+                {% endblock %}
+
+                <!-- Page Header -->
+                {% block page_header %}
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">{% block page_title %}{% endblock %}</h1>
+                    <p class="text-gray-600 mt-1">{% block page_description %}{% endblock %}</p>
+                </div>
+                {% endblock %}
+
+                <!-- Messages -->
+                {% if messages %}
+                <div class="mb-6 space-y-3">
+                    {% for message in messages %}
+                    <div class="p-4 rounded-md border-l-4 flex items-start
+                        {% if message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
+                        {% elif message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
+                        {% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-500 text-yellow-700
+                        {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
+                        <div class="flex-shrink-0 mt-0.5">
+                            {% if message.tags == 'success' %}
+                            <i class="fas fa-check-circle"></i>
+                            {% elif message.tags == 'error' %}
+                            <i class="fas fa-exclamation-circle"></i>
+                            {% elif message.tags == 'warning' %}
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {% else %}
+                            <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium">{{ message }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Page Content -->
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Toggle user menu
+        function toggleUserMenu() {
+            const userMenu = document.getElementById('user-menu');
+            userMenu.classList.toggle('hidden');
+        }
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+            
+            if (window.innerWidth < 768) {
+                document.body.classList.toggle('overflow-hidden');
+            }
+        }
+
+        // Close sidebar when clicking on backdrop
+        document.getElementById('sidebar-backdrop').addEventListener('click', toggleSidebar);
+
+        // Close user menu when clicking elsewhere
+        document.addEventListener('click', function(event) {
+            const userMenu = document.getElementById('user-menu');
+            const userButton = document.querySelector('[onclick="toggleUserMenu()"]');
+            
+            if (!userMenu.contains(event.target) && !userButton.contains(event.target)) {
+                userMenu.classList.add('hidden');
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 768) {
+                document.getElementById('sidebar').classList.remove('-translate-x-full');
+                document.getElementById('sidebar-backdrop').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add active class to current page in sidebar
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('nav a');
+            
+            navLinks.forEach(link => {
+                const linkPath = link.getAttribute('href');
+                if (currentPath === linkPath || (linkPath !== '/' && currentPath.startsWith(linkPath))) {
+                    link.classList.add('bg-primary-50', 'text-primary-600', 'font-medium');
+                    const icon = link.querySelector('i');
+                    if (icon) {
+                        icon.classList.add('text-primary-600');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

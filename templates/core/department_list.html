@@ -1,0 +1,74 @@
+<!-- templates/core/department_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Departments{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Departments</h1>
+        {% if user.is_educator %}
+        <a href="{% url 'core:department_create' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors flex items-center">
+            <i class="fas fa-plus mr-2"></i> Add Department
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-800">All Departments</h2>
+                <span class="text-sm text-gray-500">{{ departments|length }} department{{ departments|pluralize }}</span>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            {% if departments %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for department in departments %}
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ department.name }}</h3>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {% if department.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ department.is_active|yesno:"Active,Inactive" }}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Code:</span>
+                            <span class="font-medium">{{ department.code }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Institution:</span>
+                            <span class="font-medium">{{ department.institution.name }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Active Courses:</span>
+                            <span class="font-medium">{{ department.active_courses_count }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <a href="{% url 'core:department_detail' department.id %}" class="text-blue-600 hover:text-blue-800 text-sm">View</a>
+                        {% if user.is_educator %}
+                        <a href="{% url 'core:department_edit' department.id %}" class="text-yellow-600 hover:text-yellow-800 text-sm">Edit</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-building text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No departments</h3>
+                <p class="text-gray-500 mb-4">Get started by creating your first department.</p>
+                <a href="{% url 'core:department_create' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i> Add Department
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

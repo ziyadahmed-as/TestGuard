@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Bulk User Upload - Academic Management System{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Bulk User Upload</h1>
+        <p class="text-gray-600 mb-6">Upload a CSV file to create multiple users at once.</p>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+            <h2 class="text-lg font-semibold text-blue-800 mb-2">CSV Format Requirements</h2>
+            <ul class="list-disc list-inside text-blue-700 space-y-1">
+                <li>File must be in CSV format with a header row</li>
+                <li>Required columns: email, first_name, last_name, role</li>
+                <li>Optional columns: title, department, institution (ID)</li>
+                <li>Role values must be: admin, instructor, or student</li>
+                <li><a href="#" class="underline">Download template CSV file</a></li>
+            </ul>
+        </div>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+            
+            <div class="mb-4">
+                <label for="{{ form.institution.id_for_label }}" class="block text-gray-700 text-sm font-medium mb-2">
+                    {{ form.institution.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                {{ form.institution }}
+                {% if form.institution.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.institution.errors|striptags }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="mb-6">
+                <label for="{{ form.csv_file.id_for_label }}" class="block text-gray-700 text-sm font-medium mb-2">
+                    {{ form.csv_file.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div class="space-y-1 text-center">
+                        <div class="flex text-sm text-gray-600">
+                            <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-primary hover:text-primary-dark focus-within:outline-none">
+                                <span>Upload a file</span>
+                                <input id="file-upload" name="file" type="file" class="sr-only">
+                            </label>
+                            <p class="pl-1">or drag and drop</p>
+                        </div>
+                        <p class="text-xs text-gray-500">CSV up to 10MB</p>
+                    </div>
+                </div>
+                {% if form.csv_file.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.csv_file.errors|striptags }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6">
+                <a href="{% url 'user_list' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md">
+                    Cancel
+                </a>
+                <button type="submit" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md">
+                    <i class="fas fa-upload mr-2"></i>Upload Users
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

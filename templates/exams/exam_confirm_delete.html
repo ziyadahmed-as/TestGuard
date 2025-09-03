@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ exam.title }} - AcademicGuard{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-6" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-primary-600">
+                <i class="fas fa-home mr-2"></i>
+                Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'exams:exam_list' %}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary-600 md:ml-2">Exams</a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'exams:exam_detail' exam.pk %}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary-600 md:ml-2">{{ exam.title }}</a>
+            </div>
+        </li>
+        <li aria-current="page">
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">Delete</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block page_title %}Delete Exam{% endblock %}
+{% block page_description %}Are you sure you want to delete this exam?{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg max-w-2xl mx-auto">
+    <div class="px-4 py-5 sm:p-6">
+        <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">
+                        <strong>Warning:</strong> This action cannot be undone. All exam data including attempts and results will be permanently deleted.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Exam Details</h4>
+            <p class="text-sm text-gray-900"><strong>Title:</strong> {{ exam.title }}</p>
+            <p class="text-sm text-gray-900"><strong>Status:</strong> {{ exam.get_status_display }}</p>
+            <p class="text-sm text-gray-900"><strong>Questions:</strong> {{ exam.exam_questions.count }}</p>
+            <p class="text-sm text-gray-900"><strong>Attempts:</strong> {{ exam.attempts.count }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="flex justify-end space-x-3">
+                <a href="{% url 'exams:exam_detail' exam.pk %}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    Cancel
+                </a>
+                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <i class="fas fa-trash mr-2"></i> Delete Exam
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db import transaction
 
 
 class Institution(models.Model):
@@ -58,6 +59,80 @@ class Institution(models.Model):
     def user_count(self):
         """Return the total number of active users in the institution."""
         return self.users.filter(is_active=True).count()
+
+    def create_multiple_users(self, user_data_list, created_by):
+        """
+        Create multiple users at once with transactional integrity.
+        
+        Args:
+            user_data_list (list): List of dictionaries containing user data
+            created_by (User): Admin user who is creating these users
+            
+        Returns:
+            dict: Results with success count, failures, and details
+        """
+        results = {
+            'success_count': 0,
+            'failure_count': 0,
+            'errors': [],
+            'created_users': [],
+            'failed_entries': []
+        }
+        
+        try:
+            with transaction.atomic():
+                for index, user_data in enumerate(user_data_list):
+                    try:
+                        user = self._create_single_user(user_data, created_by)
+                        results['success_count'] += 1
+                        results['created_users'].append({
+                            'email': user.email,
+                            'name': user.get_full_name(),
+                            'role': user.get_role_display()
+                        })
+                    except Exception as e:
+                        results['failure_count'] += 1
+                        results['errors'].append(f"Entry {index + 1}: {str(e)}")
+                        results['failed_entries'].append({
+                            'data': user_data,
+                            'error': str(e)
+                        })
+            
+            return results
+            
+        except Exception as e:
+            raise ValidationError(f"Bulk user creation failed: {str(e)}")
+
+    def _create_single_user(self, user_data, created_by):
+        """Create a single user with validation."""
+        email = user_data.get('email', '').strip().lower()
+        if not email:
+            raise ValidationError("Email is required")
+        
+        if User.objects.filter(email=email, institution=self).exists():
+            raise ValidationError(f"User with email {email} already exists")
+        
+        user = User(
+            email=email,
+            username=email,
+            first_name=user_data.get('first_name', '').strip(),
+            last_name=user_data.get('last_name', '').strip(),
+            role=user_data.get('role', User.Role.STUDENT).strip().upper(),
+            institution=self,
+            title=user_data.get('title', '').strip(),
+            department=user_data.get('department', '').strip(),
+            is_active=user_data.get('is_active', True),
+            created_by=created_by  # Track who created this user
+        )
+        
+        # Set password (generate random if not provided)
+        password = user_data.get('password') or User.objects.make_random_password()
+        user.set_password(password)
+        
+        user.full_clean()
+        user.save()
+        
+        return user
 
 
 class User(AbstractUser):
@@ -124,6 +199,14 @@ class User(AbstractUser):
         auto_now=True,
         help_text="Timestamp of the user's last platform activity"
     )
+    created_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_users',
+        help_text="Admin user who created this account"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -133,6 +216,7 @@ class User(AbstractUser):
             models.Index(fields=['email']),
             models.Index(fields=['last_activity']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['created_by']),
         ]
         unique_together = ['institution', 'email']
         ordering = ['last_name', 'first_name']
@@ -163,171 +247,213 @@ class User(AbstractUser):
         """Check if user has student role."""
         return self.role == User.Role.STUDENT
 
+    @classmethod
+    def create_multiple(cls, user_data_list, institution, created_by):
+        """
+        Class method to create multiple users at once.
+        
+        Args:
+            user_data_list (list): List of user data dictionaries
+            institution (Institution): Target institution
+            created_by (User): Admin user creating these accounts
+            
+        Returns:
+            dict: Creation results with statistics
+        """
+        return institution.create_multiple_users(user_data_list, created_by)
+
     def clean(self):
         """Validate user data and ensure institutional consistency."""
         if self.email:
             self.email = self.email.lower()
+        
+        if self.role == User.Role.ADMIN and self.created_by and not self.created_by.is_superuser:
+            raise ValidationError("Only superusers can create admin accounts.")
+        
         super().clean()
 
+    def send_welcome_email(self, password=None):
+        """
+        Send welcome email to new user with login credentials.
+        
+        Args:
+            password (str): Optional password to include in welcome email
+        """
+        # Implementation would send actual email
+        print(f"Welcome email sent to {self.email}")
+        if password:
+            print(f"Temporary password: {password}")
 
-class BulkUserImport(models.Model):
+
+class AdminUserCreationLog(models.Model):
     """
-    Manages bulk user import operations from spreadsheet files.
-    Provides tracking and auditing for administrative user management.
+    Tracks bulk user creation operations by administrators.
+    Provides audit trail for user management activities.
     """
     
-    class Status(models.TextChoices):
-        PENDING = 'PENDING', 'Pending Processing'
-        PROCESSING = 'PROCESSING', 'Processing in Progress'
-        COMPLETED = 'COMPLETED', 'Successfully Completed'
-        FAILED = 'FAILED', 'Processing Failed'
-        PARTIAL = 'PARTIAL', 'Partial Success with Errors'
+    class CreationMethod(models.TextChoices):
+        MANUAL = 'MANUAL', 'Manual Creation'
+        CSV_IMPORT = 'CSV_IMPORT', 'CSV Import'
+        API = 'API', 'API Integration'
+        SYSTEM = 'SYSTEM', 'System Generated'
 
-    uploaded_by = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='user_imports',
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='user_creation_logs',
         limit_choices_to={'role': User.Role.ADMIN},
-        help_text="Administrator who initiated the import operation"
+        help_text="Administrator who performed the user creation"
     )
-    import_file = models.FileField(
-        upload_to='user_imports/%Y/%m/%d/',
-        help_text='Excel spreadsheet containing user data for import'
+    institution = models.ForeignKey(
+        Institution,
+        on_delete=models.CASCADE,
+        related_name='creation_logs',
+        help_text="Institution where users were created"
     )
-    status = models.CharField(
-        max_length=12, 
-        choices=Status.choices, 
-        default=Status.PENDING,
-        help_text="Current processing status of the import operation"
+    creation_method = models.CharField(
+        max_length=20,
+        choices=CreationMethod.choices,
+        default=CreationMethod.MANUAL,
+        help_text="Method used for user creation"
     )
-    total_records = models.PositiveIntegerField(
+    users_created = models.PositiveIntegerField(
         default=0,
-        help_text="Total number of records identified in the import file"
+        help_text="Number of users successfully created"
     )
-    successful_imports = models.PositiveIntegerField(
+    users_failed = models.PositiveIntegerField(
         default=0,
-        help_text="Number of user records successfully created"
+        help_text="Number of users that failed to create"
     )
-    failed_imports = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of user records that failed to import"
-    )
-    error_log = models.TextField(
-        blank=True,
-        help_text="Detailed error messages for failed import operations"
-    )
-    started_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text="Timestamp when processing commenced"
-    )
-    completed_at = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text="Timestamp when processing completed"
+    details = models.JSONField(
+        default=dict,
+        help_text="Detailed information about the creation operation"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['status', 'uploaded_by']),
-            models.Index(fields=['created_at']),
+            models.Index(fields=['created_by', 'created_at']),
+            models.Index(fields=['institution', 'created_at']),
+            models.Index(fields=['creation_method']),
         ]
-        verbose_name = "Bulk User Import"
-        verbose_name_plural = "Bulk User Imports"
+        verbose_name = "User Creation Log"
+        verbose_name_plural = "User Creation Logs"
 
     def __str__(self):
-        return f"Import #{self.id} by {self.uploaded_by.email} - {self.get_status_display()}"
+        return f"User creation by {self.created_by.email} - {self.get_creation_method_display()}"
 
-    def process_import(self):
+    @classmethod
+    def log_creation(cls, created_by, institution, method, results, details=None):
         """
-        Execute the bulk user import process from the uploaded spreadsheet.
-        Handles file parsing, validation, and user creation with comprehensive error handling.
-        """
-        self.status = self.Status.PROCESSING
-        self.started_at = timezone.now()
-        self.save()
-
-        try:
-            # Parse and process the Excel file
-            df = pd.read_excel(self.import_file.path)
-            self.total_records = len(df)
-            
-            success_count = 0
-            errors = []
-            
-            for index, row in df.iterrows():
-                try:
-                    self._create_user_from_row(row)
-                    success_count += 1
-                except Exception as e:
-                    errors.append(f"Row {index + 2}: {str(e)}")
-            
-            self.successful_imports = success_count
-            self.failed_imports = len(errors)
-            self.error_log = "\n".join(errors)
-            
-            # Determine final status based on processing results
-            if errors:
-                self.status = self.Status.PARTIAL if success_count > 0 else self.Status.FAILED
-            else:
-                self.status = self.Status.COMPLETED
-                
-        except Exception as e:
-            self.status = self.Status.FAILED
-            self.error_log = f"File processing error: {str(e)}"
-        
-        self.completed_at = timezone.now()
-        self.save()
-
-    def _create_user_from_row(self, row):
-        """
-        Create a user record from a single row of import data.
+        Create a log entry for user creation operation.
         
         Args:
-            row (pandas.Series): Data row containing user information
+            created_by (User): Admin who performed the operation
+            institution (Institution): Target institution
+            method (str): Creation method from CreationMethod choices
+            results (dict): Results from create_multiple_users
+            details (dict): Additional operation details
             
-        Raises:
-            ValidationError: If required data is missing or invalid
+        Returns:
+            AdminUserCreationLog: The created log entry
         """
-        email = str(row.get('email', '')).strip().lower()
-        if not email:
-            raise ValidationError("Email address is required for user creation")
-        
-        # Check for existing user within the same institution
-        if User.objects.filter(email=email, institution=self.uploaded_by.institution).exists():
-            raise ValidationError(f"User with email {email} already exists in this institution")
-        
-        # Generate secure temporary password
-        password = User.objects.make_random_password()
-        
-        user = User(
-            email=email,
-            username=email,
-            first_name=str(row.get('first_name', '')).strip(),
-            last_name=str(row.get('last_name', '')).strip(),
-            role=str(row.get('role', User.Role.STUDENT)).strip().upper(),
-            institution=self.uploaded_by.institution,
-            title=str(row.get('title', '')).strip(),
-            department=str(row.get('department', '')).strip(),
-            is_active=bool(row.get('is_active', True))
+        return cls.objects.create(
+            created_by=created_by,
+            institution=institution,
+            creation_method=method,
+            users_created=results.get('success_count', 0),
+            users_failed=results.get('failure_count', 0),
+            details={
+                'results': results,
+                'additional_details': details or {}
+            }
         )
+
+
+class UserImportTemplate(models.Model):
+    """
+    Provides templates and guidelines for bulk user creation.
+    """
+    
+    name = models.CharField(
+        max_length=100,
+        help_text="Name of the import template"
+    )
+    description = models.TextField(
+        help_text="Description and usage guidelines"
+    )
+    template_file = models.FileField(
+        upload_to='user_templates/',
+        help_text="Template file for user data import"
+    )
+    required_fields = models.JSONField(
+        default=list,
+        help_text="List of required field names"
+    )
+    optional_fields = models.JSONField(
+        default=list,
+        help_text="List of optional field names"
+    )
+    field_descriptions = models.JSONField(
+        default=dict,
+        help_text="Descriptions for each field"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Designates whether this template is active"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': User.Role.ADMIN},
+        help_text="Admin who created this template"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['created_by']),
+        ]
+        verbose_name = "User Import Template"
+        verbose_name_plural = "User Import Templates"
+
+    def __str__(self):
+        return self.name
+
+    def generate_template_csv(self):
+        """Generate a CSV template file for user import."""
+        import csv
+        from io import StringIO
         
-        user.set_password(password)
-        user.full_clean()
-        user.save()
+        output = StringIO()
+        writer = csv.writer(output)
         
-        return user
-
-    @property
-    def success_rate(self):
-        """Calculate the percentage of successfully imported records."""
-        if self.total_records > 0:
-            return (self.successful_imports / self.total_records) * 100
-        return 0
-
-
+        # Write header
+        headers = self.required_fields + self.optional_fields
+        writer.writerow(headers)
+        
+        # Write example row
+        example_row = []
+        for field in headers:
+            if field == 'email':
+                example_row.append('example@institution.edu')
+            elif field == 'first_name':
+                example_row.append('John')
+            elif field == 'last_name':
+                example_row.append('Doe')
+            elif field == 'role':
+                example_row.append('STUD')
+            else:
+                example_row.append('')
+        
+        writer.writerow(example_row)
+        
+        return ContentFile(output.getvalue().encode(), name=f'{self.name}_template.csv')
+    
+    
 class UserDeviceSession(models.Model):
     """
     Tracks user device sessions for security and concurrency control.
@@ -384,7 +510,7 @@ class UserDeviceSession(models.Model):
     class Meta:
         unique_together = ['user', 'device_hash']
         indexes = [
-            models.Index(fields['user', 'is_active']),
+            models.Index(fields=['user', 'is_active']),  # FIXED: Changed [] to ()
             models.Index(fields=['last_activity']),
             models.Index(fields=['device_hash']),
             models.Index(fields=['first_seen']),
@@ -393,6 +519,7 @@ class UserDeviceSession(models.Model):
         verbose_name = "User Device Session"
         verbose_name_plural = "User Device Sessions"
 
+    # ... rest of the UserDeviceSession methods ...
     def __str__(self):
         return f"{self.user.email} - Device {self.device_hash[:12]}"
 

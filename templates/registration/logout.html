@@ -1,0 +1,41 @@
+<!-- templates/registration/logout.html -->
+{% extends 'base.html' %}
+
+{% block title %}Logged Out - TestGuard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <div>
+            <div class="text-center">
+                <i class="fas fa-shield-alt text-4xl text-blue-600 mb-4"></i>
+                <h2 class="mt-2 text-3xl font-extrabold text-gray-900">
+                    You've been logged out
+                </h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Thank you for using TestGuard
+                </p>
+            </div>
+        </div>
+        
+        <div class="rounded-md bg-green-50 p-4 mb-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle text-green-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-green-800">
+                        Successfully logged out
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <a href="{% url 'login' %}" class="font-medium text-blue-600 hover:text-blue-500">
+                <i class="fas fa-sign-in-alt mr-1"></i> Sign in again
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

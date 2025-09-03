@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}User Creation Logs - Academic Management System{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">User Creation Logs</h1>
+    <p class="text-gray-600">History of bulk user creation operations</p>
+</div>
+
+<!-- Logs Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Created By</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Institution</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Method</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Results</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for log in page_obj %}
+            <tr>
+                <td class="py-4 px-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10">
+                            <div class="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white">
+                                {{ log.created_by.first_name|first }}{{ log.created_by.last_name|first }}
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <div class="font-medium text-gray-900">{{ log.created_by.get_full_name }}</div>
+                            <div class="text-gray-500">{{ log.created_by.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="py-4 px-6">{{ log.institution.name }}</td>
+                <td class="py-4 px-6">
+                    <span class="px-2 py-1 text-xs rounded-full 
+                        {% if log.method == 'manual' %}bg-blue-100 text-blue-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ log.get_method_display }}
+                    </span>
+                </td>
+                <td class="py-4 px-6">
+                    <div class="flex space-x-4">
+                        <div class="text-center">
+                            <span class="block text-lg font-bold text-green-600">{{ log.success_count }}</span>
+                            <span class="text-xs text-gray-500">Success</span>
+                        </div>
+                        <div class="text-center">
+                            <span class="block text-lg font-bold text-red-600">{{ log.failure_count }}</span>
+                            <span class="text-xs text-gray-500">Failed</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="py-4 px-6">{{ log.created_at|date:"M d, Y H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="py-4 px-6 text-center text-gray-500">No creation logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% include 'partials/pagination.html' with page_obj=page_obj %}
+</div>
+{% endblock %}

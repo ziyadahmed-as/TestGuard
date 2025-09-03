@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Start Exam - {{ exam.title }} - AcademicGuard{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-6" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-primary-600">
+                <i class="fas fa-home mr-2"></i>
+                Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'exams:exam_list' %}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary-600 md:ml-2">Exams</a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'exams:exam_detail' exam.pk %}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary-600 md:ml-2">{{ exam.title }}</a>
+            </div>
+        </li>
+        <li aria-current="page">
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">Start Exam</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block page_title %}Start Exam - {{ exam.title }}{% endblock %}
+{% block page_description %}Review exam instructions and start your attempt{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <!-- Exam Information -->
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Exam Information</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-600">Duration</p>
+                        <p class="text-sm font-medium text-gray-900">{{ exam.duration }} minutes</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Questions</p>
+                        <p class="text-sm font-medium text-gray-900">{{ exam.exam_questions.count }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Total Points</p>
+                        <p class="text-sm font-medium text-gray-900">{{ exam.total_points }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Attempts</p>
+                        <p class="text-sm font-medium text-gray-900">
+                            {{ attempt_count }} of {{ exam.max_attempts }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Instructions -->
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Instructions</h3>
+                <div class="prose prose-sm max-w-none">
+                    {{ exam.instructions|linebreaks }}
+                </div>
+            </div>
+            
+            <!-- Security Settings -->
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Important Notes</h3>
+                <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                    {% if exam.disable_copy_paste %}
+                    <li>Copy-paste functionality is disabled during the exam</li>
+                    {% endif %}
+                    {% if exam.full_screen_required %}
+                    <li>You must remain in full-screen mode for the duration of the exam</li>
+                    {% endif %}
+                    {% if exam.require_webcam %}
+                    <li>Webcam access is required for proctoring</li>
+                    {% endif %}
+                    {% if not exam.allow_backtracking %}
+                    <li>You cannot return to previous questions</li>
+                    {% endif %}
+                    <li>Do not refresh the page or navigate away during the exam</li>
+                    <li>Your answers are auto-saved periodically</li>
+                </ul>
+            </div>
+            
+            <!-- Password Form -->
+            {% if requires_password %}
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Exam Password Required</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    {% if form.errors %}
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-red-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700">
+                                    {% if form.password.errors %}
+                                        {{ form.password.errors.0 }}
+                                    {% else %}
+                                        Invalid password. Please try again.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div>
+                        <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">Exam Password</label>
+                        <input type="password" name="password" id="password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" required>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            Start Exam
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <!-- Start Exam Button -->
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="w-full inline-flex justify-center items-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <i class="fas fa-play mr-2"></i> Start Exam
+                </button>
+            </form>
+            {% endif %}
+            
+            <!-- Attempt History -->
+            {% if previous_attempts %}
+            <div class="mt-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Previous Attempts</h3>
+                <div class="overflow-hidden">
+                    <ul class="divide-y divide-gray-200">
+                        {% for attempt in previous_attempts %}
+                        <li class="py-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900">
+                                        Attempt #{{ forloop.counter }}
+                                    </p>
+                                    <p class="text-sm text-gray-500">
+                                        {{ attempt.start_time|date:"M d, Y H:i" }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if attempt.status == 'SUBMITTED' %}bg-green-100 text-green-800
+                                        {% elif attempt.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+                                        {% elif attempt.status == 'TERMINATED' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ attempt.get_status_display }}
+                                    </span>
+                                    {% if attempt.score %}
+                                    <p class="text-sm font-medium text-gray-900 text-right">
+                                        {{ attempt.score }}%
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+<header class="bg-white shadow-md">
+    <div class="flex items-center justify-between p-4">
+        <div class="flex items-center">
+            <button onclick="toggleSidebar()" class="md:hidden mr-4 text-gray-600">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            <h1 class="text-xl font-semibold text-gray-800">Academic Management System</h1>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="hidden md:block">
+                <span class="text-sm text-gray-600">Welcome,</span>
+                <span class="font-medium">{{ request.user.get_full_name }}</span>
+                <span class="ml-2 px-2 py-1 text-xs rounded-full 
+                    {% if request.user.role == 'admin' %}bg-purple-100 text-purple-800
+                    {% elif request.user.role == 'instructor' %}bg-blue-100 text-blue-800
+                    {% else %}bg-green-100 text-green-800{% endif %}">
+                    {{ request.user.get_role_display }}
+                </span>
+            </div>
+            <div class="relative">
+                <button onclick="toggleMobileMenu()" class="flex items-center focus:outline-none">
+                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                        {{ request.user.first_name|first }}{{ request.user.last_name|first }}
+                    </div>
+                </button>
+                
+                <div id="mobile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <a href="{% url 'dashboard' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                    </a>
+                    <a href="{% url 'profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <i class="fas fa-user mr-2"></i>Profile
+                    </a>
+                    <div class="border-t border-gray-100"></div>
+                    <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>

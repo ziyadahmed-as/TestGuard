@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Courses - Academic Management System{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Courses</h1>
+    {% if request.user.role == 'admin' %}
+    <a href="{% url 'course_create' %}" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md">
+        <i class="fas fa-plus mr-2"></i>Add Course
+    </a>
+    {% endif %}
+</div>
+
+<!-- Courses Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Code</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Name</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Department</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Credits</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Sections</th>
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
+                {% if request.user.role == 'admin' %}
+                <th class="py-3 px-6 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for course in page_obj %}
+            <tr>
+                <td class="py-4 px-6 font-mono">{{ course.code }}</td>
+                <td class="py-4 px-6">
+                    <div class="font-medium text-gray-900">{{ course.name }}</div>
+                    <div class="text-gray-500 text-sm">{{ course.description|default:""|truncatewords:10 }}</div>
+                </td>
+                <td class="py-4 px-6">{{ course.department.name }}</td>
+                <td class="py-4 px-6">{{ course.credits }}</td>
+                <td class="py-4 px-6">{{ course.section_count|intcomma }}</td>
+                <td class="py-4 px-6">
+                    <span class="px-2 py-1 text-xs rounded-full {% if course.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {% if course.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </td>
+                {% if request.user.role == 'admin' %}
+                <td class="py-4 px-6">
+                    <div class="flex space-x-2">
+                        <a href="{% url 'course_update' course.pk %}" class="text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{% if request.user.role == 'admin' %}7{% else %}6{% endif %}" class="py-4 px-6 text-center text-gray-500">No courses found.</td>
+            </tr>
+            {% endfor %}
+</tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% include 'partials/pagination.html' with page_obj=page_obj %}
+</div>
+{% endblock %}
