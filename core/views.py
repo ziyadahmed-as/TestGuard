@@ -2,25 +2,28 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.core.paginator import Paginator
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q, Count
 from django.utils import timezone
-from django import forms
-from django.core.exceptions import PermissionDenied
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_http_methods
+
 from .models import (
-    Institution, User, AdminUserCreationLog, UserImportTemplate,
-    UserDeviceSession, AcademicDepartment, Course, Section, Enrollment
+    Institution, User, AdminUserCreationLog, UserImportTemplate, 
+    UserDeviceSession, ActiveExamSession, AcademicDepartment, 
+    Course, Section, Enrollment
 )
 from .forms import (
     InstitutionForm, UserForm, BulkUserUploadForm, AdminUserCreationLogForm,
-    UserImportTemplateForm, UserDeviceSessionForm, AcademicDepartmentForm,
-    CourseForm, SectionForm, EnrollmentForm, UserFilterForm, InstitutionFilterForm
+    UserImportTemplateForm, UserDeviceSessionForm, ActiveExamSessionForm,
+    AcademicDepartmentForm, CourseForm, SectionForm, EnrollmentForm,
+    UserFilterForm, InstitutionFilterForm
 )
-import json
-import csv
-from io import StringIO
 
-# Helper function to check if user is admin
+# Utility functions
 def is_admin(user):
     return user.is_authenticated and user.role == User.Role.ADMIN
 
@@ -30,333 +33,220 @@ def is_instructor(user):
 def is_student(user):
     return user.is_authenticated and user.role == User.Role.STUDENT
 
-def check_role_access(user, required_role):
-    """Helper to check if user has the required role"""
-    if not user.is_authenticated:
-        return False
-    if required_role == 'admin':
-        return user.role == User.Role.ADMIN
-    elif required_role == 'instructor':
-        return user.role == User.Role.INSTRUCTOR
-    elif required_role == 'student':
-        return user.role == User.Role.STUDENT
-    return False
+def admin_required(view_func):
+    decorated_view_func = login_required(user_passes_test(
+        is_admin, 
+        login_url='login',
+        redirect_field_name=None
+    )(view_func))
+    return decorated_view_func
 
-# Global Dashboard View
-@login_required
-def global_dashboard(request):
-    """Global dashboard that redirects to appropriate dashboard based on user role"""
-    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
-        return redirect('exams:dashboard')
-    else:
-        # For students, show the core dashboard
-        return core_dashboard(request)
-
-# Core Dashboard View
-@login_required
-def core_dashboard(request):
-    """Core module dashboard"""
-    # Get statistics
-    student_count = User.objects.filter(role=User.Role.STUDENT).count()
-    instructor_count = User.objects.filter(role=User.Role.INSTRUCTOR).count()
-    course_count = Course.objects.count()
-    
-    # Import Exam model if available
-    try:
-        from exams.models import Exam
-        exam_count = Exam.objects.count()
-    except ImportError:
-        exam_count = 0
-    
-    # Get recent activity (placeholder - you'll need to implement this)
-    recent_activity = []
-    
-    context = {
-        'student_count': student_count,
-        'instructor_count': instructor_count,
-        'course_count': course_count,
-        'exam_count': exam_count,
-        'recent_activity': recent_activity,
-    }
-    
-    return render(request, 'core/dashboard.html', context)
-
-# Profile View
-@login_required
-def profile(request):
-    """User profile view"""
-    user = request.user
-    
-    if request.method == 'POST':
-        # Handle profile updates here if needed
-        pass
-    
-    return render(request, 'profile.html', {'user': user})
+def instructor_required(view_func):
+    decorated_view_func = login_required(user_passes_test(
+        lambda u: is_instructor(u) or is_admin(u),
+        login_url='login',
+        redirect_field_name=None
+    )(view_func))
+    return decorated_view_func
 
 # Institution Views
-@login_required
-@user_passes_test(is_admin)
-def institution_list(request):
-    form = InstitutionFilterForm(request.GET or None)
-    institutions = Institution.objects.all()
+@method_decorator(admin_required, name='dispatch')
+class InstitutionListView(ListView):
+    model = Institution
+    template_name = 'institution_list.html'
+    context_object_name = 'institutions'
+    paginate_by = 20
     
-    if form.is_valid():
-        if form.cleaned_data.get('is_active') is not None:
-            institutions = institutions.filter(is_active=form.cleaned_data['is_active'])
-        if form.cleaned_data.get('name'):
-            institutions = institutions.filter(name__icontains=form.cleaned_data['name'])
-    
-    paginator = Paginator(institutions, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'institution_list.html', {
-        'page_obj': page_obj,
-        'form': form
-    })
-
-@login_required
-@user_passes_test(is_admin)
-def institution_create(request):
-    if request.method == 'POST':
-        form = InstitutionForm(request.POST)
+    def get_queryset(self):
+        queryset = Institution.objects.all()
+        form = InstitutionFilterForm(self.request.GET)
+        
         if form.is_valid():
-            institution = form.save()
-            messages.success(request, f'Institution "{institution.name}" created successfully.')
-            return redirect('institution_list')
-    else:
-        form = InstitutionForm()
+            if form.cleaned_data.get('is_active'):
+                queryset = queryset.filter(is_active=True)
+            if form.cleaned_data.get('name'):
+                queryset = queryset.filter(name__icontains=form.cleaned_data['name'])
+        
+        return queryset
     
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create Institution',
-        'submit_text': 'Create Institution',
-        'cancel_url': 'institution_list'
-    })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter_form'] = InstitutionFilterForm(self.request.GET)
+        return context
 
-@login_required
-@user_passes_test(is_admin)
-def institution_update(request, pk):
-    institution = get_object_or_404(Institution, pk=pk)
+@method_decorator(admin_required, name='dispatch')
+class InstitutionCreateView(CreateView):
+    model = Institution
+    form_class = InstitutionForm
+    template_name = 'institution_form.html'
+    success_url = reverse_lazy('institution_list')
     
-    if request.method == 'POST':
-        form = InstitutionForm(request.POST, instance=institution)
-        if form.is_valid():
-            institution = form.save()
-            messages.success(request, f'Institution "{institution.name}" updated successfully.')
-            return redirect('institution_list')
-    else:
-        form = InstitutionForm(instance=institution)
-    
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': f'Update {institution.name}',
-        'submit_text': 'Update Institution',
-        'cancel_url': 'institution_list'
-    })
-# core/views.py (add to your global_dashboard view)
-@login_required
-def global_dashboard(request):
-    context = {}
-    
-    # Common user info
-    context['user'] = request.user
-    
-    # Role-specific data
-    if request.user.role == User.Role.STUDENT:
-        # Get student enrollments
-        enrollments = Enrollment.objects.filter(
-            student=request.user, is_active=True
-        ).select_related('section', 'section__course', 'section__instructor')
-        context['enrollments'] = enrollments
-        
-        # Get student exam stats
-        student_attempts = ExamAttempt.objects.filter(student=request.user)
-        completed_attempts = student_attempts.filter(
-            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
-        )
-        
-        # Calculate average score
-        scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
-        average_score = sum(scores) / len(scores) if scores else 0
-        
-        context['completed_exams'] = completed_attempts.count()
-        context['average_score'] = round(average_score, 1)
-        
-        # Get upcoming exams for student's sections
-        enrolled_sections = enrollments.values_list('section_id', flat=True)
-        context['upcoming_exams'] = Exam.objects.filter(
-            sections__in=enrolled_sections, 
-            start_date__gte=timezone.now()
-        ).order_by('start_date')[:5]
-        
-    elif request.user.role == User.Role.INSTRUCTOR:
-        # Get teaching sections
-        teaching_sections = Section.objects.filter(
-            instructor=request.user, is_active=True
-        )
-        context['teaching_sections'] = teaching_sections
-        
-        # Get student count
-        context['total_students'] = Enrollment.objects.filter(
-            section__in=teaching_sections, is_active=True
-        ).count()
-        
-        # Get exam stats
-        context['created_exams'] = Exam.objects.filter(created_by=request.user).count()
-        context['pending_reviews'] = MonitoringEvent.objects.filter(
-            reviewed_status=MonitoringEvent.ReviewedStatus.PENDING,
-            attempt__exam__created_by=request.user
-        ).count()
-        
-        # Get upcoming exams
-        context['upcoming_exams'] = Exam.objects.filter(
-            created_by=request.user,
-            start_date__gte=timezone.now()
-        ).order_by('start_date')[:5]
-        
-    else:  # Admin
-        # Get system stats
-        context['institution_count'] = Institution.objects.count()
-        context['user_count'] = User.objects.count()
-        context['active_user_count'] = User.objects.filter(is_active=True).count()
-        
-        # Get exam count (if exams app is available)
-        try:
-            from exams.models import Exam
-            context['exam_count'] = Exam.objects.count()
-        except ImportError:
-            context['exam_count'] = 0
-            
-        # Get recent users and logs
-        context['recent_users'] = User.objects.order_by('-date_joined')[:5]
-        context['recent_logs'] = AdminUserCreationLog.objects.select_related(
-            'created_by', 'institution'
-        ).order_by('-created_at')[:5]
-        
-        # Get upcoming exams
-        context['upcoming_exams'] = Exam.objects.filter(
-            start_date__gte=timezone.now()
-        ).order_by('start_date')[:5]
-    
-    # Add recent activity (placeholder - you'll need to implement this)
-    context['recent_activity'] = []
-    
-    return render(request, 'core/global_dashboard.html', context)
+    def form_valid(self, form):
+        messages.success(self.request, 'Institution created successfully.')
+        return super().form_valid(form)
 
-@login_required
-@user_passes_test(is_admin)
-def institution_detail(request, pk):
+@method_decorator(admin_required, name='dispatch')
+class InstitutionUpdateView(UpdateView):
+    model = Institution
+    form_class = InstitutionForm
+    template_name = 'institution_form.html'
+    success_url = reverse_lazy('institution_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Institution updated successfully.')
+        return super().form_valid(form)
+
+@method_decorator(admin_required, name='dispatch')
+class InstitutionDetailView(DetailView):
+    model = Institution
+    template_name = 'institution_detail.html'
+    context_object_name = 'institution'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_count'] = self.object.user_count
+        context['departments'] = self.object.departments.filter(is_active=True)
+        return context
+
+@admin_required
+def institution_toggle_active(request, pk):
     institution = get_object_or_404(Institution, pk=pk)
-    users = institution.users.all().select_related('institution')
-    departments = institution.departments.all()
+    institution.is_active = not institution.is_active
+    institution.save()
     
-    # Get user statistics
-    user_stats = users.aggregate(
-        total=Count('id'),
-        active=Count('id', filter=Q(is_active=True)),
-        admins=Count('id', filter=Q(role=User.Role.ADMIN, is_active=True)),
-        instructors=Count('id', filter=Q(role=User.Role.INSTRUCTOR, is_active=True)),
-        students=Count('id', filter=Q(role=User.Role.STUDENT, is_active=True))
-    )
+    action = "activated" if institution.is_active else "deactivated"
+    messages.success(request, f'Institution {action} successfully.')
     
-    return render(request, 'institution_detail.html', {
-        'institution': institution,
-        'user_stats': user_stats,
-        'departments': departments[:5],
-        'recent_users': users.order_by('-date_joined')[:10]
-    })
+    return redirect('institution_list')
 
 # User Views
-@login_required
-@user_passes_test(is_admin)
-def user_list(request):
-    form = UserFilterForm(request.GET or None)
-    users = User.objects.select_related('institution').all()
+@method_decorator(admin_required, name='dispatch')
+class UserListView(ListView):
+    model = User
+    template_name = 'user_list.html'
+    context_object_name = 'users'
+    paginate_by = 20
     
-    if form.is_valid():
-        if form.cleaned_data.get('role'):
-            users = users.filter(role=form.cleaned_data['role'])
-        if form.cleaned_data.get('institution'):
-            users = users.filter(institution=form.cleaned_data['institution'])
-        if form.cleaned_data.get('is_active') is not None:
-            users = users.filter(is_active=form.cleaned_data['is_active'])
-        if form.cleaned_data.get('department'):
-            users = users.filter(department__icontains=form.cleaned_data['department'])
-    
-    paginator = Paginator(users, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'user_list.html', {
-        'page_obj': page_obj,
-        'form': form,
-        'roles': User.Role.choices
-    })
-
-@login_required
-@user_passes_test(is_admin)
-def user_create(request):
-    if request.method == 'POST':
-        form = UserForm(request.POST, created_by=request.user)
+    def get_queryset(self):
+        queryset = User.objects.select_related('institution')
+        form = UserFilterForm(self.request.GET)
+        
         if form.is_valid():
-            user = form.save()
-            messages.success(request, f'User "{user.get_full_name()}" created successfully.')
-            return redirect('user_list')
-    else:
-        form = UserForm(created_by=request.user)
+            if form.cleaned_data.get('role'):
+                queryset = queryset.filter(role=form.cleaned_data['role'])
+            if form.cleaned_data.get('institution'):
+                queryset = queryset.filter(institution=form.cleaned_data['institution'])
+            if form.cleaned_data.get('is_active') is not None:
+                queryset = queryset.filter(is_active=form.cleaned_data['is_active'])
+            if form.cleaned_data.get('department'):
+                queryset = queryset.filter(department__icontains=form.cleaned_data['department'])
+        
+        return queryset
     
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create User',
-        'submit_text': 'Create User',
-        'cancel_url': 'user_list'
-    })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter_form'] = UserFilterForm(self.request.GET)
+        return context
 
-@login_required
-@user_passes_test(is_admin)
-def user_update(request, pk):
+@method_decorator(admin_required, name='dispatch')
+class UserCreateView(CreateView):
+    model = User
+    form_class = UserForm
+    template_name = 'user_form.html'
+    success_url = reverse_lazy('user_list')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['created_by'] = self.request.user
+        return kwargs
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, 'User created successfully.')
+        
+        # Send welcome email with password if it's a new user
+        if form.cleaned_data.get('password'):
+            self.object.send_welcome_email(form.cleaned_data['password'])
+        else:
+            # If no password was set, the form generates a random one
+            self.object.send_welcome_email()
+        
+        return response
+
+@method_decorator(login_required, name='dispatch')
+class UserUpdateView(UpdateView):
+    model = User
+    form_class = UserForm
+    template_name = 'user_form.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('user_detail', kwargs={'pk': self.object.pk})
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Only pass created_by for new users, not for updates
+        if not self.object.pk:
+            kwargs['created_by'] = self.request.user
+        return kwargs
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Users can only edit their own profile unless they're admins
+        obj = self.get_object()
+        if not (request.user.is_admin or request.user == obj):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'User updated successfully.')
+        return super().form_valid(form)
+
+@method_decorator(login_required, name='dispatch')
+class UserDetailView(DetailView):
+    model = User
+    template_name = 'user_detail.html'
+    context_object_name = 'user_profile'
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Users can only view their own profile unless they're admins
+        obj = self.get_object()
+        if not (request.user.is_admin or request.user == obj):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.object.is_student:
+            context['enrollments'] = self.object.enrollments.filter(is_active=True).select_related('section__course')
+        elif self.object.is_educator:
+            context['teaching_sections'] = self.object.teaching_sections.filter(is_active=True).select_related('course')
+        return context
+
+@admin_required
+def user_toggle_active(request, pk):
     user = get_object_or_404(User, pk=pk)
     
-    if request.method == 'POST':
-        form = UserForm(request.POST, instance=user, created_by=request.user)
-        if form.is_valid():
-            user = form.save()
-            messages.success(request, f'User "{user.get_full_name()}" updated successfully.')
-            return redirect('user_list')
-    else:
-        form = UserForm(instance=user, created_by=request.user)
+    # Prevent users from deactivating themselves
+    if request.user == user:
+        messages.error(request, 'You cannot deactivate your own account.')
+        return redirect('user_list')
     
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': f'Update {user.get_full_name()}',
-        'submit_text': 'Update User',
-        'cancel_url': 'user_list'
-    })
-
-@login_required
-@user_passes_test(is_admin)
-def user_detail(request, pk):
-    user = get_object_or_404(User, pk=pk)
-    device_sessions = user.device_sessions.all().order_by('-last_activity')
-    created_users = user.created_users.all() if user.role == User.Role.ADMIN else None
+    user.is_active = not user.is_active
+    user.save()
     
-    return render(request, 'user_detail.html', {
-        'user': user,
-        'device_sessions': device_sessions,
-        'created_users': created_users
-    })
+    action = "activated" if user.is_active else "deactivated"
+    messages.success(request, f'User {action} successfully.')
+    
+    return redirect('user_list')
 
-@login_required
-@user_passes_test(is_admin)
+@admin_required
 def bulk_user_upload(request):
     if request.method == 'POST':
         form = BulkUserUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            institution = form.cleaned_data['institution']
-            user_data_list = form.cleaned_data['csv_file']
-            
             try:
+                institution = form.cleaned_data['institution']
+                user_data_list = form.cleaned_data['csv_file']
+                
                 # Create users using the institution's method
                 results = institution.create_multiple_users(user_data_list, request.user)
                 
@@ -368,485 +258,649 @@ def bulk_user_upload(request):
                     results=results
                 )
                 
-                if results['success_count'] > 0:
-                    messages.success(
-                        request, 
-                        f"Successfully created {results['success_count']} users. "
-                        f"{results['failure_count']} failed."
-                    )
+                # Prepare success message with results
+                success_msg = (
+                    f"Successfully created {results['success_count']} users. "
+                    f"{results['failure_count']} failures."
+                )
+                messages.success(request, success_msg)
                 
+                # If there were failures, store them in session to display
                 if results['failure_count'] > 0:
-                    messages.warning(
-                        request,
-                        f"{results['failure_count']} users failed to create. "
-                        "Check the creation log for details."
-                    )
+                    request.session['bulk_upload_errors'] = results['errors']
                 
                 return redirect('user_list')
                 
             except Exception as e:
-                messages.error(request, f"Error creating users: {str(e)}")
+                messages.error(request, f'Error processing upload: {str(e)}')
     else:
         form = BulkUserUploadForm()
     
     return render(request, 'bulk_user_upload.html', {'form': form})
 
-@login_required
-@user_passes_test(is_admin)
-def user_creation_logs(request):
-    logs = AdminUserCreationLog.objects.select_related('created_by', 'institution').order_by('-created_at')
+@admin_required
+def download_import_template(request, template_id=None):
+    if template_id:
+        template = get_object_or_404(UserImportTemplate, id=template_id, is_active=True)
+        csv_file = template.generate_template_csv()
+    else:
+        # Create a default template if none specified
+        default_template = UserImportTemplate(
+            name="Default User Import Template",
+            required_fields=['email', 'first_name', 'last_name', 'role'],
+            optional_fields=['title', 'department', 'is_active'],
+            field_descriptions={
+                'email': 'User email address (must be unique within institution)',
+                'first_name': 'User first name',
+                'last_name': 'User last name',
+                'role': 'User role (ADMIN, INSTR, or STUD)',
+                'title': 'Professional title (optional)',
+                'department': 'Department name (optional)',
+                'is_active': 'Account status (true/false, defaults to true)'
+            }
+        )
+        csv_file = default_template.generate_template_csv()
     
-    paginator = Paginator(logs, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    response = HttpResponse(csv_file, content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="user_import_template.csv"'
+    return response
+
+# AdminUserCreationLog Views
+@method_decorator(admin_required, name='dispatch')
+class AdminUserCreationLogListView(ListView):
+    model = AdminUserCreationLog
+    template_name = 'admin_user_creation_log_list.html'
+    context_object_name = 'creation_logs'
+    paginate_by = 20
     
-    return render(request, 'user_creation_logs.html', {'page_obj': page_obj})
+    def get_queryset(self):
+        # Admins can only see logs for their own institution unless they're superusers
+        if self.request.user.is_superuser:
+            return AdminUserCreationLog.objects.select_related('created_by', 'institution')
+        else:
+            return AdminUserCreationLog.objects.filter(
+                institution=self.request.user.institution
+            ).select_related('created_by', 'institution')
+
+@method_decorator(admin_required, name='dispatch')
+class AdminUserCreationLogDetailView(DetailView):
+    model = AdminUserCreationLog
+    template_name = 'admin_user_creation_log_detail.html'
+    context_object_name = 'creation_log'
+
+# UserImportTemplate Views
+@method_decorator(admin_required, name='dispatch')
+class UserImportTemplateListView(ListView):
+    model = UserImportTemplate
+    template_name = 'user_import_template_list.html'
+    context_object_name = 'templates'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        return UserImportTemplate.objects.filter(is_active=True)
+
+@method_decorator(admin_required, name='dispatch')
+class UserImportTemplateCreateView(CreateView):
+    model = UserImportTemplate
+    form_class = UserImportTemplateForm
+    template_name = 'user_import_template_form.html'
+    success_url = reverse_lazy('user_import_template_list')
+    
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, 'Template created successfully.')
+        return super().form_valid(form)
+
+@method_decorator(admin_required, name='dispatch')
+class UserImportTemplateUpdateView(UpdateView):
+    model = UserImportTemplate
+    form_class = UserImportTemplateForm
+    template_name = 'user_import_template_form.html'
+    success_url = reverse_lazy('user_import_template_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Template updated successfully.')
+        return super().form_valid(form)
+
+@admin_required
+def user_import_template_delete(request, pk):
+    template = get_object_or_404(UserImportTemplate, pk=pk)
+    template.is_active = False
+    template.save()
+    messages.success(request, 'Template deleted successfully.')
+    return redirect('user_import_template_list')
 
 # Academic Department Views
-@login_required
-def department_list(request):
-    # Check if user has access to view departments
-    if not (is_admin(request.user) or is_instructor(request.user) or is_student(request.user)):
-        raise PermissionDenied
+@method_decorator(admin_required, name='dispatch')
+class AcademicDepartmentListView(ListView):
+    model = AcademicDepartment
+    template_name = 'academic_department_list.html'
+    context_object_name = 'departments'
+    paginate_by = 20
     
-    departments = AcademicDepartment.objects.select_related('institution').filter(is_active=True)
-    
-    if not is_admin(request.user):
-        departments = departments.filter(institution=request.user.institution)
-    
-    paginator = Paginator(departments, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'department_list.html', {'page_obj': page_obj})
+    def get_queryset(self):
+        # Admins can only see departments in their institution unless they're superusers
+        if self.request.user.is_superuser:
+            return AcademicDepartment.objects.select_related('institution')
+        else:
+            return AcademicDepartment.objects.filter(
+                institution=self.request.user.institution
+            ).select_related('institution')
 
-@login_required
-def department_detail(request, pk):
-    # Check if user has access to view department details
-    if not (is_admin(request.user) or is_instructor(request.user) or is_student(request.user)):
-        raise PermissionDenied
+@method_decorator(admin_required, name='dispatch')
+class AcademicDepartmentCreateView(CreateView):
+    model = AcademicDepartment
+    form_class = AcademicDepartmentForm
+    template_name = 'academic_department_form.html'
+    success_url = reverse_lazy('academic_department_list')
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Limit institution choices for non-superusers
+        if not self.request.user.is_superuser:
+            kwargs['instance'] = AcademicDepartment(institution=self.request.user.institution)
+        return kwargs
+    
+    def form_valid(self, form):
+        # For non-superusers, automatically set the institution to their own
+        if not self.request.user.is_superuser:
+            form.instance.institution = self.request.user.institution
+        
+        messages.success(self.request, 'Department created successfully.')
+        return super().form_valid(form)
+
+@method_decorator(admin_required, name='dispatch')
+class AcademicDepartmentUpdateView(UpdateView):
+    model = AcademicDepartment
+    form_class = AcademicDepartmentForm
+    template_name = 'academic_department_form.html'
+    success_url = reverse_lazy('academic_department_list')
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Non-superusers can only edit departments in their institution
+        obj = self.get_object()
+        if not request.user.is_superuser and obj.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Department updated successfully.')
+        return super().form_valid(form)
+
+@admin_required
+def academic_department_toggle_active(request, pk):
     department = get_object_or_404(AcademicDepartment, pk=pk)
     
-    # Check if user has permission to view this department
-    if not is_admin(request.user) and department.institution != request.user.institution:
+    # Check permission
+    if not request.user.is_superuser and department.institution != request.user.institution:
         raise PermissionDenied
     
-    # Get related courses and faculty
-    courses = Course.objects.filter(department=department, is_active=True)
-    faculty = User.objects.filter(
-        department=department.name, 
-        role=User.Role.INSTRUCTOR, 
-        is_active=True
-    )
+    department.is_active = not department.is_active
+    department.save()
     
-    # Get department statistics
-    course_count = courses.count()
-    faculty_count = faculty.count()
-    student_count = User.objects.filter(
-        department=department.name, 
-        role=User.Role.STUDENT, 
-        is_active=True
-    ).count()
+    action = "activated" if department.is_active else "deactivated"
+    messages.success(request, f'Department {action} successfully.')
     
-    return render(request, 'department_detail.html', {
-        'department': department,
-        'courses': courses[:10],  # Show first 10 courses
-        'faculty': faculty[:5],   # Show first 5 faculty members
-        'course_count': course_count,
-        'faculty_count': faculty_count,
-        'student_count': student_count
-    })
-
-@login_required
-@user_passes_test(is_admin)
-def department_create(request):
-    if request.method == 'POST':
-        form = AcademicDepartmentForm(request.POST)
-        if form.is_valid():
-            department = form.save()
-            messages.success(request, f'Department "{department.name}" created successfully.')
-            return redirect('department_list')
-    else:
-        form = AcademicDepartmentForm()
-        # Limit institution choices to user's institution if not superuser
-        if not request.user.is_superuser:
-            form.fields['institution'].queryset = Institution.objects.filter(pk=request.user.institution.pk)
-    
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create Department',
-        'submit_text': 'Create Department',
-        'cancel_url': 'department_list'
-    })
-
-@login_required
-@user_passes_test(is_admin)
-def department_update(request, pk):
-    department = get_object_or_404(AcademicDepartment, pk=pk)
-    
-    if request.method == 'POST':
-        form = AcademicDepartmentForm(request.POST, instance=department)
-        if form.is_valid():
-            department = form.save()
-            messages.success(request, f"Department '{department.name}' updated successfully.")
-            return redirect('department_list')
-    else:
-        form = AcademicDepartmentForm(instance=department)
-        # Limit institution choices to user's institution if not superuser
-        if not request.user.is_superuser:
-            form.fields['institution'].queryset = Institution.objects.filter(pk=request.user.institution.pk)
-    
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': f'Update {department.name}',
-        'submit_text': 'Update Department',
-        'cancel_url': 'department_list'
-    })
+    return redirect('academic_department_list')
 
 # Course Views
-@login_required
-def course_list(request):
-    # Check if user has access to view courses
-    if not (is_admin(request.user) or is_instructor(request.user) or is_student(request.user)):
-        raise PermissionDenied
+@method_decorator(login_required, name='dispatch')
+class CourseListView(ListView):
+    model = Course
+    template_name = 'course_list.html'
+    context_object_name = 'courses'
+    paginate_by = 20
     
-    courses = Course.objects.select_related('department', 'department__institution').filter(is_active=True)
+    def get_queryset(self):
+        # Users can only see courses in their institution
+        queryset = Course.objects.filter(
+            department__institution=self.request.user.institution
+        ).select_related('department')
+        
+        # Add filtering if needed
+        department_id = self.request.GET.get('department')
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+            
+        return queryset
     
-    if not is_admin(request.user):
-        courses = courses.filter(department__institution=request.user.institution)
-    
-    paginator = Paginator(courses, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'course_list.html', {'page_obj': page_obj})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add departments for filtering
+        context['departments'] = AcademicDepartment.objects.filter(
+            institution=self.request.user.institution,
+            is_active=True
+        )
+        return context
 
-@login_required
-@user_passes_test(is_admin)
-def course_create(request):
-    if request.method == 'POST':
-        form = CourseForm(request.POST)
-        if form.is_valid():
-            course = form.save()
-            messages.success(request, f'Course "{course.name}" created successfully.')
-            return redirect('course_list')
-    else:
-        form = CourseForm()
+@method_decorator(instructor_required, name='dispatch')
+class CourseCreateView(CreateView):
+    model = Course
+    form_class = CourseForm
+    template_name = 'course_form.html'
+    success_url = reverse_lazy('course_list')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
         # Limit department choices to user's institution
-        if not request.user.is_superuser:
-            form.fields['department'].queryset = AcademicDepartment.objects.filter(
-                institution=request.user.institution
-            )
+        kwargs['instance'] = Course()
+        return kwargs
     
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create Course',
-        'submit_text': 'Create Course',
-        'cancel_url': 'course_list'
-    })
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter departments to only those in the user's institution
+        form.fields['department'].queryset = AcademicDepartment.objects.filter(
+            institution=self.request.user.institution,
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Course created successfully.')
+        return super().form_valid(form)
 
-@login_required
-@user_passes_test(is_admin)
-def course_update(request, pk):
+@method_decorator(instructor_required, name='dispatch')
+class CourseUpdateView(UpdateView):
+    model = Course
+    form_class = CourseForm
+    template_name = 'course_form.html'
+    success_url = reverse_lazy('course_list')
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Users can only edit courses in their institution
+        obj = self.get_object()
+        if obj.department.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter departments to only those in the user's institution
+        form.fields['department'].queryset = AcademicDepartment.objects.filter(
+            institution=self.request.user.institution,
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Course updated successfully.')
+        return super().form_valid(form)
+
+@instructor_required
+def course_toggle_active(request, pk):
     course = get_object_or_404(Course, pk=pk)
     
-    if request.method == 'POST':
-        form = CourseForm(request.POST, instance=course)
-        if form.is_valid():
-            course = form.save()
-            messages.success(request, f'Course "{course.name}" updated successfully.')
-            return redirect('course_list')
-    else:
-        form = CourseForm(instance=course)
-        # Limit department choices to user's institution
-        if not request.user.is_superuser:
-            form.fields['department'].queryset = AcademicDepartment.objects.filter(
-                institution=request.user.institution
-            )
+    # Check permission
+    if course.department.institution != request.user.institution:
+        raise PermissionDenied
     
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': f'Update {course.name}',
-        'submit_text': 'Update Course',
-        'cancel_url': 'course_list'
-    })
+    course.is_active = not course.is_active
+    course.save()
+    
+    action = "activated" if course.is_active else "deactivated"
+    messages.success(request, f'Course {action} successfully.')
+    
+    return redirect('course_list')
 
 # Section Views
-@login_required
-def section_list(request):
-    # Check if user has access to view sections
-    if not (is_admin(request.user) or is_instructor(request.user) or is_student(request.user)):
-        raise PermissionDenied
+@method_decorator(login_required, name='dispatch')
+class SectionListView(ListView):
+    model = Section
+    template_name = 'section_list.html'
+    context_object_name = 'sections'
+    paginate_by = 20
     
-    sections = Section.objects.select_related('course', 'course__department', 'instructor').filter(is_active=True)
+    def get_queryset(self):
+        # Users can only see sections in their institution
+        queryset = Section.objects.filter(
+            course__department__institution=self.request.user.institution
+        ).select_related('course', 'instructor')
+        
+        # Add filtering if needed
+        course_id = self.request.GET.get('course')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+            
+        return queryset
     
-    if is_instructor(request.user):
-        sections = sections.filter(instructor=request.user)
-    elif is_student(request.user):
-        # Get sections where student is enrolled
-        enrolled_sections = Enrollment.objects.filter(
-            student=request.user, is_active=True
-        ).values_list('section_id', flat=True)
-        sections = sections.filter(id__in=enrolled_sections)
-    elif not is_admin(request.user):
-        sections = sections.filter(course__department__institution=request.user.institution)
-    
-    paginator = Paginator(sections, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'section_list.html', {'page_obj': page_obj})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add courses for filtering
+        context['courses'] = Course.objects.filter(
+            department__institution=self.request.user.institution,
+            is_active=True
+        )
+        return context
 
-@login_required
-def section_create(request):
-    # Check if user has permission to create sections
-    if not (is_admin(request.user) or is_instructor(request.user)):
-        raise PermissionDenied
+@method_decorator(instructor_required, name='dispatch')
+class SectionCreateView(CreateView):
+    model = Section
+    form_class = SectionForm
+    template_name = 'section_form.html'
+    success_url = reverse_lazy('section_list')
     
-    if request.method == 'POST':
-        form = SectionForm(request.POST)
-        if form.is_valid():
-            section = form.save()
-            messages.success(request, f'Section "{section.section_code}" created successfully.')
-            return redirect('section_list')
-    else:
-        form = SectionForm()
-        # Limit choices based on user role
-        if not request.user.is_superuser:
-            if is_admin(request.user):
-                form.fields['course'].queryset = Course.objects.filter(
-                    department__institution=request.user.institution
-                )
-                form.fields['instructor'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.INSTRUCTOR
-                )
-            elif is_instructor(request.user):
-                form.fields['course'].queryset = Course.objects.filter(
-                    department__institution=request.user.institution
-                )
-                form.fields['instructor'].initial = request.user
-                form.fields['instructor'].widget = forms.HiddenInput()
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        return kwargs
     
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create Section',
-        'submit_text': 'Create Section',
-        'cancel_url': 'section_list'
-    })
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter courses to only those in the user's institution
+        form.fields['course'].queryset = Course.objects.filter(
+            department__institution=self.request.user.institution,
+            is_active=True
+        )
+        # Filter instructors to only those in the user's institution
+        form.fields['instructor'].queryset = User.objects.filter(
+            institution=self.request.user.institution,
+            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Section created successfully.')
+        return super().form_valid(form)
 
-@login_required
-def section_update(request, pk):
+@method_decorator(instructor_required, name='dispatch')
+class SectionUpdateView(UpdateView):
+    model = Section
+    form_class = SectionForm
+    template_name = 'section_form.html'
+    success_url = reverse_lazy('section_list')
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Users can only edit sections in their institution
+        obj = self.get_object()
+        if obj.course.department.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter courses to only those in the user's institution
+        form.fields['course'].queryset = Course.objects.filter(
+            department__institution=self.request.user.institution,
+            is_active=True
+        )
+        # Filter instructors to only those in the user's institution
+        form.fields['instructor'].queryset = User.objects.filter(
+            institution=self.request.user.institution,
+            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Section updated successfully.')
+        return super().form_valid(form)
+
+@instructor_required
+def section_toggle_active(request, pk):
     section = get_object_or_404(Section, pk=pk)
     
-    # Check if user has permission to update this section
-    if not (is_admin(request.user) or (is_instructor(request.user) and section.instructor == request.user)):
+    # Check permission
+    if section.course.department.institution != request.user.institution:
         raise PermissionDenied
     
-    if request.method == 'POST':
-        form = SectionForm(request.POST, instance=section)
-        if form.is_valid():
-            section = form.save()
-            messages.success(request, f'Section "{section.section_code}" updated successfully.')
-            return redirect('section_list')
-    else:
-        form = SectionForm(instance=section)
-        # Limit choices based on user role
-        if not request.user.is_superuser:
-            if is_admin(request.user):
-                form.fields['course'].queryset = Course.objects.filter(
-                    department__institution=request.user.institution
-                )
-                form.fields['instructor'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.INSTRUCTOR
-                )
-            elif is_instructor(request.user):
-                form.fields['course'].queryset = Course.objects.filter(
-                    department__institution=request.user.institution
-                )
-                form.fields['instructor'].widget = forms.HiddenInput()
+    section.is_active = not section.is_active
+    section.save()
     
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': f'Update {section.section_code}',
-        'submit_text': 'Update Section',
-        'cancel_url': 'section_list'
-    })
+    action = "activated" if section.is_active else "deactivated"
+    messages.success(request, f'Section {action} successfully.')
+    
+    return redirect('section_list')
 
 # Enrollment Views
-@login_required
-def enrollment_list(request):
-    # Check if user has access to view enrollments
-    if not (is_admin(request.user) or is_instructor(request.user) or is_student(request.user)):
-        raise PermissionDenied
+@method_decorator(login_required, name='dispatch')
+class EnrollmentListView(ListView):
+    model = Enrollment
+    template_name = 'enrollment_list.html'
+    context_object_name = 'enrollments'
+    paginate_by = 20
     
-    enrollments = Enrollment.objects.select_related('student', 'section', 'section__course').filter(is_active=True)
+    def get_queryset(self):
+        # Users can only see enrollments in their institution
+        queryset = Enrollment.objects.filter(
+            section__course__department__institution=self.request.user.institution
+        ).select_related('student', 'section__course')
+        
+        # Add filtering if needed
+        section_id = self.request.GET.get('section')
+        if section_id:
+            queryset = queryset.filter(section_id=section_id)
+            
+        return queryset
     
-    if is_instructor(request.user):
-        # Get enrollments for sections taught by this instructor
-        enrollments = enrollments.filter(section__instructor=request.user)
-    elif is_student(request.user):
-        enrollments = enrollments.filter(student=request.user)
-    elif not is_admin(request.user):
-        enrollments = enrollments.filter(section__course__department__institution=request.user.institution)
-    
-    paginator = Paginator(enrollments, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'enrollment_list.html', {'page_obj': page_obj})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add sections for filtering
+        context['sections'] = Section.objects.filter(
+            course__department__institution=self.request.user.institution,
+            is_active=True
+        )
+        return context
 
-@login_required
-def enrollment_create(request):
-    # Check if user has permission to create enrollments
-    if not (is_admin(request.user) or is_instructor(request.user)):
-        raise PermissionDenied
+@method_decorator(instructor_required, name='dispatch')
+class EnrollmentCreateView(CreateView):
+    model = Enrollment
+    form_class = EnrollmentForm
+    template_name = 'enrollment_form.html'
+    success_url = reverse_lazy('enrollment_list')
     
-    if request.method == 'POST':
-        form = EnrollmentForm(request.POST)
-        if form.is_valid():
-            enrollment = form.save()
-            messages.success(request, 'Enrollment created successfully.')
-            return redirect('enrollment_list')
-    else:
-        form = EnrollmentForm()
-        # Limit choices based on user role
-        if not request.user.is_superuser:
-            if is_admin(request.user):
-                form.fields['student'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.STUDENT
-                )
-                form.fields['section'].queryset = Section.objects.filter(
-                    course__department__institution=request.user.institution
-                )
-            elif is_instructor(request.user):
-                form.fields['student'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.STUDENT
-                )
-                form.fields['section'].queryset = Section.objects.filter(
-                    instructor=request.user
-                )
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        return kwargs
     
-    return render(request, 'form_template.html', {
-        'form': form, 
-        'title': 'Create Enrollment',
-        'submit_text': 'Create Enrollment',
-        'cancel_url': 'enrollment_list'
-    })
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter students to only those in the user's institution
+        form.fields['student'].queryset = User.objects.filter(
+            institution=self.request.user.institution,
+            role=User.Role.STUDENT,
+            is_active=True
+        )
+        # Filter sections to only those in the user's institution
+        form.fields['section'].queryset = Section.objects.filter(
+            course__department__institution=self.request.user.institution,
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Enrollment created successfully.')
+        return super().form_valid(form)
 
-@login_required
-def enrollment_update(request, pk):
+@method_decorator(instructor_required, name='dispatch')
+class EnrollmentUpdateView(UpdateView):
+    model = Enrollment
+    form_class = EnrollmentForm
+    template_name = 'enrollment_form.html'
+    success_url = reverse_lazy('enrollment_list')
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Users can only edit enrollments in their institution
+        obj = self.get_object()
+        if obj.section.course.department.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filter students to only those in the user's institution
+        form.fields['student'].queryset = User.objects.filter(
+            institution=self.request.user.institution,
+            role=User.Role.STUDENT,
+            is_active=True
+        )
+        # Filter sections to only those in the user's institution
+        form.fields['section'].queryset = Section.objects.filter(
+            course__department__institution=self.request.user.institution,
+            is_active=True
+        )
+        return form
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Enrollment updated successfully.')
+        return super().form_valid(form)
+
+@instructor_required
+def enrollment_toggle_active(request, pk):
     enrollment = get_object_or_404(Enrollment, pk=pk)
     
-    # Check if user has permission to update this enrollment
-    if not (is_admin(request.user) or (is_instructor(request.user) and enrollment.section.instructor == request.user)):
+    # Check permission
+    if enrollment.section.course.department.institution != request.user.institution:
         raise PermissionDenied
     
-    if request.method == 'POST':
-        form = EnrollmentForm(request.POST, instance=enrollment)
-        if form.is_valid():
-            enrollment = form.save()
-            messages.success(request, 'Enrollment updated successfully.')
-            return redirect('enrollment_list')
-    else:
-        form = EnrollmentForm(instance=enrollment)
-        # Limit choices based on user role
-        if not request.user.is_superuser:
-            if is_admin(request.user):
-                form.fields['student'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.STUDENT
-                )
-                form.fields['section'].queryset = Section.objects.filter(
-                    course__department__institution=request.user.institution
-                )
-            elif is_instructor(request.user):
-                form.fields['student'].queryset = User.objects.filter(
-                    institution=request.user.institution, role=User.Role.STUDENT
-                )
-                form.fields['section'].queryset = Section.objects.filter(
-                    instructor=request.user
-                )
+    enrollment.is_active = not enrollment.is_active
+    enrollment.save()
     
-    return render(request, 'form_template.html', {
-        'form': form,
-        'title': 'Update Enrollment',
-        'submit_text': 'Update Enrollment',
-        'cancel_url': 'enrollment_list'
-    })
+    action = "activated" if enrollment.is_active else "deactivated"
+    messages.success(request, f'Enrollment {action} successfully.')
+    
+    return redirect('enrollment_list')
 
-# API Views for AJAX calls
+# Dashboard View
+@login_required
+def dashboard(request):
+    context = {}
+    
+    if request.user.is_admin:
+        # Admin dashboard
+        context['institution'] = request.user.institution
+        context['user_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            is_active=True
+        ).count()
+        context['student_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            role=User.Role.STUDENT,
+            is_active=True
+        ).count()
+        context['instructor_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+            is_active=True
+        ).count()
+        context['department_count'] = AcademicDepartment.objects.filter(
+            institution=request.user.institution,
+            is_active=True
+        ).count()
+        context['course_count'] = Course.objects.filter(
+            department__institution=request.user.institution,
+            is_active=True
+        ).count()
+        
+    elif request.user.is_instructor:
+        # Instructor dashboard
+        context['teaching_sections'] = Section.objects.filter(
+            instructor=request.user,
+            is_active=True
+        ).select_related('course')
+        context['student_count'] = Enrollment.objects.filter(
+            section__instructor=request.user,
+            is_active=True
+        ).count()
+        
+    elif request.user.is_student:
+        # Student dashboard
+        context['enrollments'] = Enrollment.objects.filter(
+            student=request.user,
+            is_active=True
+        ).select_related('section__course', 'section__instructor')
+    
+    return render(request, 'dashboard.html', context)
+
+# Profile View
+@login_required
+def profile(request):
+    if request.method == 'POST':
+        form = UserForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('profile')
+    else:
+        form = UserForm(instance=request.user)
+    
+    return render(request, 'profile.html', {'form': form})
+
+# Device Session Management
+@login_required
+def device_sessions(request):
+    sessions = UserDeviceSession.objects.filter(
+        user=request.user,
+        is_active=True
+    ).order_by('-last_activity')
+    
+    return render(request, 'device_sessions.html', {'sessions': sessions})
+
+@login_required
+def deactivate_device_session(request, pk):
+    session = get_object_or_404(UserDeviceSession, pk=pk, user=request.user)
+    session.deactivate()
+    messages.success(request, 'Device session deactivated successfully.')
+    return redirect('device_sessions')
+
+# Exam Session Views (simplified for core functionality)
+@login_required
+def active_exam_sessions(request):
+    if request.user.is_student:
+        sessions = ActiveExamSession.objects.filter(
+            user=request.user,
+            is_active=True
+        ).select_related('exam')
+    else:
+        # For instructors/admins, show all active sessions in their institution
+        sessions = ActiveExamSession.objects.filter(
+            user__institution=request.user.institution,
+            is_active=True
+        ).select_related('user', 'exam')
+    
+    return render(request, 'active_exam_sessions.html', {'sessions': sessions})
+
+@csrf_protect
+@require_http_methods(["POST"])
+@login_required
+def terminate_exam_session(request, pk):
+    session = get_object_or_404(ActiveExamSession, pk=pk)
+    
+    # Check permissions
+    if not (request.user.is_admin or 
+            request.user.is_instructor or 
+            session.user == request.user):
+        raise PermissionDenied
+    
+    reason = request.POST.get('reason', 'Session terminated by user')
+    session.terminate(reason)
+    
+    messages.success(request, 'Exam session terminated successfully.')
+    return redirect('active_exam_sessions')
+
+# API Views for AJAX functionality
 @login_required
 def get_institution_departments(request, institution_id):
-    if not is_admin(request.user):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-    
     departments = AcademicDepartment.objects.filter(
-        institution_id=institution_id, is_active=True
+        institution_id=institution_id,
+        is_active=True
     ).values('id', 'code', 'name')
     
     return JsonResponse(list(departments), safe=False)
 
 @login_required
 def get_department_courses(request, department_id):
-    if not (is_admin(request.user) or is_instructor(request.user)):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-    
     courses = Course.objects.filter(
-        department_id=department_id, is_active=True
+        department_id=department_id,
+        is_active=True
     ).values('id', 'code', 'name')
     
     return JsonResponse(list(courses), safe=False)
 
 @login_required
 def get_course_sections(request, course_id):
-    if not (is_admin(request.user) or is_instructor(request.user)):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-    
-    current_year = timezone.now().year
     sections = Section.objects.filter(
-        course_id=course_id, is_active=True, year__gte=current_year
+        course_id=course_id,
+        is_active=True
     ).values('id', 'section_code', 'term', 'year')
     
     return JsonResponse(list(sections), safe=False)
-
-# Export Views
-@login_required
-@user_passes_test(is_admin)
-def export_users_csv(request):
-    users = User.objects.select_related('institution').all()
-    
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="users_export.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow([
-        'Email', 'First Name', 'Last Name', 'Role', 'Institution', 
-        'Title', 'Department', 'Is Active', 'Email Verified', 'MFA Enabled'
-    ])
-    
-    for user in users:
-        writer.writerow([
-            user.email, user.first_name, user.last_name, user.get_role_display(),
-            user.institution.name, user.title, user.department, user.is_active,
-            user.email_verified, user.mfa_enabled
-        ])
-    
-    return response
-
-@login_required
-@user_passes_test(is_admin)
-def export_institutions_csv(request):
-    institutions = Institution.objects.all()
-    
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="institutions_export.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow(['Name', 'Domain', 'Is Active', 'User Count', 'Created At'])
-    
-    for institution in institutions:
-        writer.writerow([
-            institution.name, institution.domain, institution.is_active,
-            institution.user_count, institution.created_at.strftime('%Y-%m-%d')
-        ])
-    return response

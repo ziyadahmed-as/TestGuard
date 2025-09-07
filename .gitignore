@@ -1,11 +1,5 @@
 # ignore envaroment files
 .schola
-rity.env
-.env
-# ignore macOS system files
-.DS_Store
-# ignore node modules
-node_modules/
 # ignore log files
 *.log
 # ignore build output

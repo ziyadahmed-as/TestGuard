@@ -32,6 +32,77 @@ def is_student(user):
 def is_admin_or_instructor(user):
     return user.is_authenticated and (user.role == User.Role.ADMIN or user.role == User.Role.INSTRUCTOR)
 
+# Dashboard View
+@login_required
+def dashboard(request):
+    """Dashboard view with statistics and recent activities"""
+    context = {}
+    
+    # Common stats for all users
+    context['stats'] = {
+        'total_exams': Exam.objects.count(),
+        'active_attempts': ExamAttempt.objects.filter(status=ExamAttempt.Status.IN_PROGRESS).count(),
+        'completed_attempts': ExamAttempt.objects.filter(
+            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
+        ).count(),
+        'pending_reviews': MonitoringEvent.objects.filter(reviewed_status=MonitoringEvent.ReviewedStatus.PENDING).count(),
+    }
+    
+    # Upcoming exams (next 7 days)
+    context['upcoming_exams'] = Exam.objects.filter(
+        start_date__gte=timezone.now(),
+        start_date__lte=timezone.now() + timezone.timedelta(days=7)
+    ).order_by('start_date')[:5]
+    
+    # Recent exam attempts
+    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
+        context['recent_attempts'] = ExamAttempt.objects.select_related(
+            'student', 'exam'
+        ).order_by('-start_time')[:5]
+    else:
+        context['recent_attempts'] = ExamAttempt.objects.filter(
+            student=request.user
+        ).select_related('exam').order_by('-start_time')[:5]
+    
+    # Monitoring events
+    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
+        if request.user.role == User.Role.ADMIN:
+            context['monitoring_events'] = MonitoringEvent.objects.select_related(
+                'attempt', 'attempt__student', 'attempt__exam'
+            ).order_by('-timestamp')[:5]
+        else:
+            # Instructors only see events for their exams
+            instructor_exams = Exam.objects.filter(created_by=request.user)
+            context['monitoring_events'] = MonitoringEvent.objects.filter(
+                attempt__exam__in=instructor_exams
+            ).select_related('attempt', 'attempt__student', 'attempt__exam').order_by('-timestamp')[:5]
+    else:
+        context['monitoring_events'] = MonitoringEvent.objects.filter(
+            attempt__student=request.user
+        ).select_related('attempt', 'attempt__exam').order_by('-timestamp')[:5]
+    
+    # Student-specific stats
+    if request.user.role == User.Role.STUDENT:
+        student_attempts = ExamAttempt.objects.filter(student=request.user)
+        completed_attempts = student_attempts.filter(
+            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
+        )
+        
+        # Calculate average score
+        scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
+        average_score = sum(scores) / len(scores) if scores else 0
+        
+        context['student_stats'] = {
+            'upcoming_exams': Exam.objects.filter(
+                sections__students=request.user,
+                start_date__gte=timezone.now()
+            ).distinct().count(),
+            'completed_exams': completed_attempts.count(),
+            'average_score': round(average_score, 1),
+        }
+    
+    return render(request, 'exams/dashboard.html', context)
+
 # Exam Views
 @login_required
 def exam_list(request):
@@ -44,10 +115,10 @@ def exam_list(request):
         exams = Exam.objects.filter(created_by=request.user)
     elif request.user.role == User.Role.STUDENT:
         # Get exams for sections the student is enrolled in
-        enrolled_sections = request.user.enrollments.filter(
-            is_active=True
-        ).values_list('section_id', flat=True)
-        exams = Exam.objects.filter(sections__in=enrolled_sections, status=Exam.Status.LIVE)
+        exams = Exam.objects.filter(
+            sections__students=request.user,
+            status=Exam.Status.LIVE
+        ).distinct()
     else:
         exams = Exam.objects.none()
     
@@ -77,13 +148,16 @@ def exam_list(request):
 def exam_create(request):
     """Create a new exam"""
     if request.method == 'POST':
-        form = ExamForm(request.POST, created_by=request.user)
+        form = ExamForm(request.POST, user=request.user)
         if form.is_valid():
-            exam = form.save()
+            exam = form.save(commit=False)
+            exam.created_by = request.user
+            exam.save()
+            form.save_m2m()  # Save sections
             messages.success(request, f'Exam "{exam.title}" created successfully.')
-            return redirect('exams:exam_detail', pk=exam.pk)
+            return redirect('exam_detail', pk=exam.pk)
     else:
-        form = ExamForm(created_by=request.user)
+        form = ExamForm(user=request.user)
     
     return render(request, 'exams/exam_form.html', {
         'form': form,
@@ -102,25 +176,19 @@ def exam_update(request, pk):
         raise PermissionDenied("You don't have permission to edit this exam.")
     
     if request.method == 'POST':
-        form = ExamForm(request.POST, instance=exam, created_by=request.user)
+        form = ExamForm(request.POST, instance=exam, user=request.user)
         if form.is_valid():
             exam = form.save()
             messages.success(request, f'Exam "{exam.title}" updated successfully.')
-            return redirect('exams:exam_detail', pk=exam.pk)
+            return redirect('exam_detail', pk=exam.pk)
     else:
-        form = ExamForm(instance=exam, created_by=request.user)
+        form = ExamForm(instance=exam, user=request.user)
     
     return render(request, 'exams/exam_form.html', {
         'form': form,
         'title': f'Update {exam.title}',
         'submit_text': 'Update Exam'
     })
-
-@login_required
-@user_passes_test(is_admin_or_instructor)
-def exam_edit(request, exam_id):
-    """Edit an exam - alias for exam_update to fix URL routing issue"""
-    return exam_update(request, pk=exam_id)
 
 @login_required
 def exam_detail(request, pk):
@@ -131,11 +199,8 @@ def exam_detail(request, pk):
     if request.user.role == User.Role.INSTRUCTOR and exam.created_by != request.user:
         raise PermissionDenied("You don't have permission to view this exam.")
     elif request.user.role == User.Role.STUDENT:
-        # Check if student has access to this exam via sections
-        student_sections = request.user.enrollments.filter(
-            is_active=True
-        ).values_list('section_id', flat=True)
-        if not exam.sections.filter(id__in=student_sections).exists():
+        # Check if student has access to this exam
+        if not exam.sections.filter(students=request.user).exists():
             raise PermissionDenied("You don't have access to this exam.")
     
     # Get exam questions
@@ -176,7 +241,7 @@ def exam_delete(request, pk):
         exam_title = exam.title
         exam.delete()
         messages.success(request, f'Exam "{exam_title}" deleted successfully.')
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     return render(request, 'exams/exam_confirm_delete.html', {'exam': exam})
 
@@ -198,7 +263,7 @@ def exam_question_manage(request, exam_pk):
             exam_question.exam = exam
             exam_question.save()
             messages.success(request, 'Question added to exam successfully.')
-            return redirect('exams:exam_question_manage', exam_pk=exam.pk)
+            return redirect('exam_question_manage', exam_pk=exam.pk)
     else:
         form = ExamQuestionForm(exam=exam)
     
@@ -226,7 +291,7 @@ def exam_question_remove(request, exam_pk, question_pk):
         exam_question.delete()
         messages.success(request, 'Question removed from exam successfully.')
     
-    return redirect('exams:exam_question_manage', exam_pk=exam.pk)
+    return redirect('exam_question_manage', exam_pk=exam.pk)
 
 # Exam Attempt Views
 @login_required
@@ -236,22 +301,19 @@ def exam_start(request, exam_pk):
     exam = get_object_or_404(Exam, pk=exam_pk)
     
     # Check if student has access to this exam
-    student_sections = request.user.enrollments.filter(
-        is_active=True
-    ).values_list('section_id', flat=True)
-    if not exam.sections.filter(id__in=student_sections).exists():
+    if not exam.sections.filter(students=request.user).exists():
         raise PermissionDenied("You don't have access to this exam.")
     
     # Check if exam is available
     if not exam.is_active:
         messages.error(request, "This exam is not currently available.")
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     # Check if student has remaining attempts
     attempt_count = ExamAttempt.objects.filter(exam=exam, student=request.user).count()
     if attempt_count >= exam.max_attempts:
         messages.error(request, "You have reached the maximum number of attempts for this exam.")
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     # Handle password authentication if required
     if exam.requires_password and request.method == 'POST':
@@ -299,7 +361,7 @@ def _create_exam_attempt(request, exam):
             points_awarded=0
         )
     
-    return redirect('exams:exam_take', attempt_pk=attempt.pk)
+    return redirect('exam_take', attempt_pk=attempt.pk)
 
 @login_required
 @user_passes_test(is_student)
@@ -310,7 +372,7 @@ def exam_take(request, attempt_pk):
     # Check if attempt is in progress
     if attempt.status != ExamAttempt.Status.IN_PROGRESS:
         messages.error(request, "This exam attempt is not in progress.")
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     # Check time remaining
     time_remaining = attempt.time_remaining
@@ -319,7 +381,7 @@ def exam_take(request, attempt_pk):
         attempt.end_time = timezone.now()
         attempt.save()
         messages.error(request, "Exam time has expired.")
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     # Get questions and responses
     responses = attempt.responses.select_related('question').order_by('question__examquestion__order')
@@ -345,9 +407,9 @@ def exam_take(request, attempt_pk):
                     attempt.end_time = timezone.now()
                     attempt.save()
                     messages.success(request, "Exam submitted successfully!")
-                    return redirect('exams:exam_results', attempt_pk=attempt.pk)
+                    return redirect('exam_results', attempt_pk=attempt.pk)
                 
-                return redirect('exams:exam_take', attempt_pk=attempt.pk)
+                return redirect('exam_take', attempt_pk=attempt.pk)
         else:
             messages.error(request, "Invalid question.")
     
@@ -381,7 +443,7 @@ def exam_results(request, attempt_pk):
     # Only show results for completed attempts
     if attempt.status not in [ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]:
         messages.error(request, "Exam results are not available yet.")
-        return redirect('exams:exam_list')
+        return redirect('exam_list')
     
     # Calculate score if not already calculated
     if attempt.score is None:
@@ -456,13 +518,15 @@ def question_bank_detail(request, pk):
 def question_bank_create(request):
     """Create a new question bank"""
     if request.method == 'POST':
-        form = QuestionBankForm(request.POST, created_by=request.user)
+        form = QuestionBankForm(request.POST, user=request.user)
         if form.is_valid():
-            question_bank = form.save()
+            question_bank = form.save(commit=False)
+            question_bank.created_by = request.user
+            question_bank.save()
             messages.success(request, f'Question bank "{question_bank.name}" created successfully.')
-            return redirect('exams:question_bank_detail', pk=question_bank.pk)
+            return redirect('question_bank_detail', pk=question_bank.pk)
     else:
-        form = QuestionBankForm(created_by=request.user)
+        form = QuestionBankForm(user=request.user)
     
     return render(request, 'exams/question_bank_form.html', {
         'form': form,
@@ -476,7 +540,7 @@ def question_bank_create(request):
 def bulk_question_import(request):
     """Bulk import questions from Excel"""
     if request.method == 'POST':
-        form = BulkQuestionImportForm(request.POST, request.FILES, uploaded_by=request.user)
+        form = BulkQuestionImportForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             import_obj = form.save(commit=False)
             import_obj.uploaded_by = request.user
@@ -486,9 +550,9 @@ def bulk_question_import(request):
             import_obj.process_import()
             
             messages.success(request, f'Import completed with {import_obj.successful_imports} successes and {import_obj.failed_imports} failures.')
-            return redirect('exams:question_bank_detail', pk=import_obj.question_bank.pk)
+            return redirect('question_bank_detail', pk=import_obj.question_bank.pk)
     else:
-        form = BulkQuestionImportForm(uploaded_by=request.user)
+        form = BulkQuestionImportForm(user=request.user)
     
     return render(request, 'exams/bulk_question_import.html', {'form': form})
 
@@ -527,13 +591,16 @@ def monitoring_event_review(request, pk):
         raise PermissionDenied("You don't have permission to review this event.")
     
     if request.method == 'POST':
-        form = MonitoringEventReviewForm(request.POST, instance=event, reviewed_by=request.user)
+        form = MonitoringEventReviewForm(request.POST, instance=event)
         if form.is_valid():
-            form.save()
+            event = form.save(commit=False)
+            event.reviewed_by = request.user
+            event.reviewed_at = timezone.now()
+            event.save()
             messages.success(request, 'Event review completed.')
-            return redirect('exams:monitoring_events')
+            return redirect('monitoring_events')
     else:
-        form = MonitoringEventReviewForm(instance=event, reviewed_by=request.user)
+        form = MonitoringEventReviewForm(instance=event)
     
     return render(request, 'exams/monitoring_event_review.html', {
         'event': event,
@@ -579,77 +646,6 @@ def exam_time_remaining(request, attempt_pk):
         'time_remaining': attempt.time_remaining,
         'status': attempt.status
     })
-
-# Dashboard View
-@login_required
-def dashboard(request):
-    context = {}
-    
-    # Common stats for all users
-    context['stats'] = {
-        'total_exams': Exam.objects.count(),
-        'active_attempts': ExamAttempt.objects.filter(status=ExamAttempt.Status.IN_PROGRESS).count(),
-        'completed_attempts': ExamAttempt.objects.filter(
-            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
-        ).count(),
-        'pending_reviews': MonitoringEvent.objects.filter(reviewed_status=MonitoringEvent.ReviewedStatus.PENDING).count(),
-    }
-    
-    # Upcoming exams (next 7 days)
-    context['upcoming_exams'] = Exam.objects.filter(
-        start_date__gte=timezone.now(),
-        start_date__lte=timezone.now() + timezone.timedelta(days=7)
-    ).order_by('start_date')[:5]
-    
-    # Recent exam attempts
-    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
-        context['recent_attempts'] = ExamAttempt.objects.select_related(
-            'student', 'exam'
-        ).order_by('-start_time')[:5]
-    else:
-        context['recent_attempts'] = ExamAttempt.objects.filter(
-            student=request.user
-        ).select_related('exam').order_by('-start_time')[:5]
-    
-    # Monitoring events
-    if request.user.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]:
-        if request.user.role == User.Role.ADMIN:
-            context['monitoring_events'] = MonitoringEvent.objects.select_related(
-                'attempt', 'attempt__student', 'attempt__exam'
-            ).order_by('-timestamp')[:5]
-        else:
-            # Instructors only see events for their exams
-            instructor_exams = Exam.objects.filter(created_by=request.user)
-            context['monitoring_events'] = MonitoringEvent.objects.filter(
-                attempt__exam__in=instructor_exams
-            ).select_related('attempt', 'attempt__student', 'attempt__exam').order_by('-timestamp')[:5]
-    else:
-        context['monitoring_events'] = MonitoringEvent.objects.filter(
-            attempt__student=request.user
-        ).select_related('attempt', 'attempt__exam').order_by('-timestamp')[:5]
-    
-    # Student-specific stats
-    if request.user.role == User.Role.STUDENT:
-        student_attempts = ExamAttempt.objects.filter(student=request.user)
-        completed_attempts = student_attempts.filter(
-            status__in=[ExamAttempt.Status.SUBMITTED, ExamAttempt.Status.AUTO_SUBMITTED]
-        )
-        
-        # Calculate average score
-        scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
-        average_score = sum(scores) / len(scores) if scores else 0
-        
-        context['student_stats'] = {
-            'upcoming_exams': Exam.objects.filter(
-                sections__enrollments__student=request.user,
-                sections__enrollments__is_active=True,
-                start_date__gte=timezone.now()
-            ).distinct().count(),
-            'completed_exams': completed_attempts.count(),
-            'average_score': round(average_score, 1),
-        }
-    
-    return render(request, 'exams/dashboard.html', context)
 
 # Error handling
 def handler404(request, exception):
