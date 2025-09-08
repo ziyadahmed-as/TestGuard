@@ -1,0 +1,135 @@
+<!-- exams/templates/exams/exam_list.html -->
+{% extends 'core/base.html' %}
+
+{% block title %}Exams - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+    <div class="flex-1 min-w-0">
+        <h1 class="text-3xl font-bold text-gray-900">Exams</h1>
+    </div>
+    {% if request.user.role == 'INSTRUCTOR' or request.user.role == 'ADMIN' %}
+    <div class="mt-4 flex md:mt-0 md:ml-4">
+        <a href="{% url 'exams:exam_create' %}" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Create Exam
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Search Form -->
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {% for field in form %}
+        <div>
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                {{ field.label }}
+            </label>
+            <div class="mt-1">
+                {{ field }}
+            </div>
+        </div>
+        {% endfor %}
+        <div class="flex items-end">
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Filter
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Exams List -->
+<div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <ul class="divide-y divide-gray-200">
+        {% for exam in page_obj %}
+        <li>
+            <a href="{% url 'exams:exam_detail' exam.pk %}" class="block hover:bg-gray-50">
+                <div class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium text-blue-600 truncate">{{ exam.title }}</p>
+                        <div class="ml-2 flex-shrink-0 flex">
+                            <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if exam.status == 'LIVE' %}bg-green-100 text-green-800
+                                {% elif exam.status == 'SCHEDULED' %}bg-yellow-100 text-yellow-800
+                                {% elif exam.status == 'DRAFT' %}bg-gray-100 text-gray-800
+                                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ exam.get_status_display }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-2 sm:flex sm:justify-between">
+                        <div class="sm:flex">
+                            <p class="flex items-center text-sm text-gray-500">
+                                {{ exam.description|truncatewords:20 }}
+                            </p>
+                        </div>
+                        <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                            <p>
+                                {{ exam.start_date|date:"M d, Y" }} - {{ exam.end_date|date:"M d, Y" }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-500">
+                            Duration: {{ exam.duration }} minutes • 
+                            Max Attempts: {{ exam.max_attempts }} • 
+                            Pass Percentage: {{ exam.pass_percentage }}%
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </li>
+        {% empty %}
+        <li class="px-4 py-5 sm:px-6">
+            <p class="text-sm text-gray-500">No exams found.</p>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6">
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+            <p class="text-sm text-gray-700">
+                Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span> of <span class="font-medium">{{ page_obj.paginator.count }}</span> results
+            </p>
+        </div>
+        <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Previous</span>
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </a>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-500 text-sm font-medium text-white">
+                        {{ num }}
+                    </a>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        {{ num }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Next</span>
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

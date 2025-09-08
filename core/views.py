@@ -3,13 +3,14 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q, Count
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.views import LoginView
 
 from .models import (
     Institution, User, AdminUserCreationLog, UserImportTemplate, 
@@ -23,6 +24,20 @@ from .forms import (
     UserFilterForm, InstitutionFilterForm
 )
 
+# Custom Login View to handle redirects properly
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'
+    
+    def get_success_url(self):
+        # Redirect to dashboard after successful login
+        return reverse('dashboard')
+
+class CustomLogoutView(LoginView):
+    template_name = 'registration/logged_out.html'
+    next_page = 'login'
+    
+    def get_next_page(self):
+        return reverse('login')
 # Utility functions
 def is_admin(user):
     return user.is_authenticated and user.role == User.Role.ADMIN
@@ -48,6 +63,57 @@ def instructor_required(view_func):
         redirect_field_name=None
     )(view_func))
     return decorated_view_func
+
+# Dashboard View - This is the main entry point after login
+@login_required
+def dashboard(request):
+    context = {}
+    
+    if request.user.is_admin:
+        # Admin dashboard
+        context['institution'] = request.user.institution
+        context['user_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            is_active=True
+        ).count()
+        context['student_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            role=User.Role.STUDENT,
+            is_active=True
+        ).count()
+        context['instructor_count'] = User.objects.filter(
+            institution=request.user.institution, 
+            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+            is_active=True
+        ).count()
+        context['department_count'] = AcademicDepartment.objects.filter(
+            institution=request.user.institution,
+            is_active=True
+        ).count()
+        context['course_count'] = Course.objects.filter(
+            department__institution=request.user.institution,
+            is_active=True
+        ).count()
+        
+    elif request.user.is_instructor:
+        # Instructor dashboard
+        context['teaching_sections'] = Section.objects.filter(
+            instructor=request.user,
+            is_active=True
+        ).select_related('course')
+        context['student_count'] = Enrollment.objects.filter(
+            section__instructor=request.user,
+            is_active=True
+        ).count()
+        
+    elif request.user.is_student:
+        # Student dashboard
+        context['enrollments'] = Enrollment.objects.filter(
+            student=request.user,
+            is_active=True
+        ).select_related('section__course', 'section__instructor')
+    
+    return render(request, 'dashboard.html', context)
 
 # Institution Views
 @method_decorator(admin_required, name='dispatch')
@@ -180,7 +246,7 @@ class UserUpdateView(UpdateView):
     template_name = 'user_form.html'
     
     def get_success_url(self):
-        return reverse_lazy('user_detail', kwargs={'pk': self.object.pk})
+        return reverse('user_detail', kwargs={'pk': self.object.pk})
     
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -759,57 +825,6 @@ def enrollment_toggle_active(request, pk):
     messages.success(request, f'Enrollment {action} successfully.')
     
     return redirect('enrollment_list')
-
-# Dashboard View
-@login_required
-def dashboard(request):
-    context = {}
-    
-    if request.user.is_admin:
-        # Admin dashboard
-        context['institution'] = request.user.institution
-        context['user_count'] = User.objects.filter(
-            institution=request.user.institution, 
-            is_active=True
-        ).count()
-        context['student_count'] = User.objects.filter(
-            institution=request.user.institution, 
-            role=User.Role.STUDENT,
-            is_active=True
-        ).count()
-        context['instructor_count'] = User.objects.filter(
-            institution=request.user.institution, 
-            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
-            is_active=True
-        ).count()
-        context['department_count'] = AcademicDepartment.objects.filter(
-            institution=request.user.institution,
-            is_active=True
-        ).count()
-        context['course_count'] = Course.objects.filter(
-            department__institution=request.user.institution,
-            is_active=True
-        ).count()
-        
-    elif request.user.is_instructor:
-        # Instructor dashboard
-        context['teaching_sections'] = Section.objects.filter(
-            instructor=request.user,
-            is_active=True
-        ).select_related('course')
-        context['student_count'] = Enrollment.objects.filter(
-            section__instructor=request.user,
-            is_active=True
-        ).count()
-        
-    elif request.user.is_student:
-        # Student dashboard
-        context['enrollments'] = Enrollment.objects.filter(
-            student=request.user,
-            is_active=True
-        ).select_related('section__course', 'section__instructor')
-    
-    return render(request, 'dashboard.html', context)
 
 # Profile View
 @login_required

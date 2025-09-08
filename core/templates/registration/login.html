@@ -1,63 +1,149 @@
-<!-- templates/registration/login.html -->
-{% extends 'base.html' %}
+{% extends "core/base.html" %}
 
-{% block title %}Login - EduPlatform{% endblock %}
+{% block title %}Login - TestGuard Platform{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-        <div>
-            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary">
-                <i class="fas fa-graduation-cap text-white text-xl"></i>
+<div class="min-h-screen flex items-center justify-center py-8 px-4" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+    <div class="flex flex-col md:flex-row w-full max-w-5xl bg-white rounded-2xl overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl">
+        <!-- Left side - Branding -->
+        <div class="md:w-2/5 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-10 flex flex-col justify-center hidden md:block">
+            <div class="text-center">
+                <div class="flex justify-center mb-6">
+                    <div class="h-16 w-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                        <i class="fas fa-shield-alt text-white text-2xl"></i>
+                    </div>
+                </div>
+                <h1 class="text-3xl font-bold mb-4">TestGuard Platform</h1>
+                <p class="text-indigo-100 opacity-90">Secure exam proctoring and academic integrity solutions for educational institutions</p>
+                
+                <div class="mt-10 pt-6 border-t border-indigo-500/30">
+                    <div class="flex items-center justify-center space-x-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-emerald-300 mr-2"></i>
+                            <span class="text-sm">Secure Testing</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-emerald-300 mr-2"></i>
+                            <span class="text-sm">AI Proctoring</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                Sign in to your account
-            </h2>
-            <p class="mt-2 text-center text-sm text-gray-600">
-                Or
-                <a href="#" class="font-medium text-primary hover:text-indigo-500">
-                    contact your administrator for access
-                </a>
-            </p>
         </div>
-        <form class="mt-8 space-y-6" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="remember" value="true">
-            <div class="rounded-md shadow-sm -space-y-px">
-                <div>
-                    <label for="username" class="sr-only">Email address</label>
-                    <input id="username" name="username" type="text" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm" placeholder="Email address">
+        
+        <!-- Right side - Login Form -->
+        <div class="md:w-3/5 p-8 md:p-12">
+            <div class="text-center mb-2 md:hidden">
+                <div class="h-12 w-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-shield-alt text-white"></i>
                 </div>
-                <div>
-                    <label for="password" class="sr-only">Password</label>
-                    <input id="password" name="password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm" placeholder="Password">
+                <h1 class="text-2xl font-bold text-gray-800">TestGuard</h1>
+            </div>
+            
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome back</h2>
+            <p class="text-gray-600 mb-8">Sign in to your account to continue</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-6">
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username or Email</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-user text-gray-400"></i>
+                        </div>
+                        <input id="username" name="username" type="text" required 
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-200" 
+                               placeholder="Enter your username">
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </div>
+                        <input id="password" name="password" type="password" required 
+                               class="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors duration-200" 
+                               placeholder="Enter your password">
+                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="togglePassword()">
+                            <i class="fas fa-eye text-gray-400" id="password-toggle-icon"></i>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center">
+                        <input id="remember-me" name="remember-me" type="checkbox" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        <label for="remember-me" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                    </div>
+                    
+                    <div class="text-sm">
+                        <a href="{% url 'password_reset' %}" class="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200">Forgot password?</a>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg">
+                    Sign in
+                </button>
+            </form>
+            
+            {% if form.errors %}
+            <div class="mt-6 rounded-lg bg-red-50 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Invalid login credentials</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p>Please check your username and password and try again.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
-                    <label for="remember-me" class="ml-2 block text-sm text-gray-900">
-                        Remember me
-                    </label>
-                </div>
-
-                <div class="text-sm">
-                    <a href="#" class="font-medium text-primary hover:text-indigo-500">
-                        Forgot your password?
+            {% endif %}
+            
+            <div class="mt-8 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an account? 
+                    <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200">Contact your administrator</a>
+                </p>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <div class="flex justify-center space-x-4">
+                    <a href="#" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                        <i class="fab fa-facebook-f text-lg"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                        <i class="fab fa-twitter text-lg"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-gray-500 transition-colors duration-200">
+                        <i class="fab fa-linkedin-in text-lg"></i>
                     </a>
                 </div>
             </div>
-
-            <div>
-                <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                        <i class="fas fa-lock text-indigo-500 group-hover:text-indigo-400"></i>
-                    </span>
-                    Sign in
-                </button>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
+
+<script>
+    function togglePassword() {
+        const passwordInput = document.getElementById('password');
+        const icon = document.getElementById('password-toggle-icon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+</script>
 {% endblock %}

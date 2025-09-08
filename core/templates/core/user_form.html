@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} User - Educational Platform{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="px-4 py-5 sm:px-6">
+        <h1 class="text-2xl font-bold text-gray-900">{% if form.instance.pk %}Edit{% else %}Create{% endif %} User</h1>
+    </div>
+
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <form method="post" class="px-4 py-5 sm:p-6">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="rounded-md bg-red-50 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            {{ form.non_field_errors }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                <div class="sm:col-span-3">
+                    <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.first_name.label }}</label>
+                    <div class="mt-1">
+                        {{ form.first_name }}
+                    </div>
+                    {% if form.first_name.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.last_name.label }}</label>
+                    <div class="mt-1">
+                        {{ form.last_name }}
+                    </div>
+                    {% if form.last_name.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-6">
+                    <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.email.label }}</label>
+                    <div class="mt-1">
+                        {{ form.email }}
+                    </div>
+                    {% if form.email.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.role.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.role.label }}</label>
+                    <div class="mt-1">
+                        {{ form.role }}
+                    </div>
+                    {% if form.role.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.role.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.institution.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.institution.label }}</label>
+                    <div class="mt-1">
+                        {{ form.institution }}
+                    </div>
+                    {% if form.institution.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.institution.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.title.label }}</label>
+                    <div class="mt-1">
+                        {{ form.title }}
+                    </div>
+                    {% if form.title.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.department.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.department.label }}</label>
+                    <div class="mt-1">
+                        {{ form.department }}
+                    </div>
+                    {% if form.department.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.department.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                {% if not form.instance.pk %}
+                <div class="sm:col-span-3">
+                    <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.password.label }}</label>
+                    <div class="mt-1">
+                        {{ form.password }}
+                    </div>
+                    {% if form.password.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.password.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label for="{{ form.confirm_password.id_for_label }}" class="block text-sm font-medium text-gray-700">{{ form.confirm_password.label }}</label>
+                    <div class="mt-1">
+                        {{ form.confirm_password }}
+                    </div>
+                    {% if form.confirm_password.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.confirm_password.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="sm:col-span-6">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            {{ form.is_active }}
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="{{ form.is_active.id_for_label }}" class="font-medium text-gray-700">{{ form.is_active.label }}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm:col-span-6">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            {{ form.email_verified }}
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="{{ form.email_verified.id_for_label }}" class="font-medium text-gray-700">{{ form.email_verified.label }}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm:col-span-6">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            {{ form.mfa_enabled }}
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="{{ form.mfa_enabled.id_for_label }}" class="font-medium text-gray-700">{{ form.mfa_enabled.label }}</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-end">
+                <a href="{% url 'user_list' %}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Cancel
+                </a>
+                <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    {% if form.instance.pk %}Update{% else %}Create{% endif %} User
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

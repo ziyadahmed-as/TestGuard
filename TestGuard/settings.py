@@ -56,9 +56,9 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'TestGuard.urls'
 
 # Authentication settings
-LOGIN_REDIRECT_URL = 'dashboard'  # This will redirect to the global dashboard
-LOGIN_URL = 'login'
-
+# In settings.py
+LOGIN_REDIRECT_URL = 'dashboard'  # Redirect to dashboard after login
+LOGOUT_REDIRECT_URL = 'login'     # Redirect to login after logout
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

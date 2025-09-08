@@ -5,8 +5,8 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
-    # Authentication URLs
-    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    # Authentication URLs - Using CustomLoginView instead of default
+    path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     
     # Dashboard and Profile
@@ -78,7 +78,7 @@ urlpatterns = [
     path('api/course/<int:course_id>/sections/', views.get_course_sections, name='api_course_sections'),
 ]
 
-# Password reset URLs (if needed)
+# Password reset URLs
 urlpatterns += [
     path('password-reset/', 
          auth_views.PasswordResetView.as_view(

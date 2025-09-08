@@ -1,0 +1,101 @@
+<!-- exams/templates/exams/exam_results.html -->
+{% extends 'core/base.html' %}
+
+{% block title %}Exam Results - {{ attempt.exam.title }} - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 bg-{% if passed %}green{% else %}red{% endif %}-100">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-{% if passed %}green{% else %}red{% endif %}-800">
+                    Exam Results: {{ attempt.exam.title }}
+                </h1>
+                <span class="px-3 py-1 rounded-full text-sm font-medium bg-{% if passed %}green{% else %}red{% endif %}-200 text-{% if passed %}green{% else %}red{% endif %}-800">
+                    {% if passed %}PASSED{% else %}FAILED{% endif %}
+                </span>
+            </div>
+        </div>
+        <div class="px-4 py-5 sm:p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-500">Your Score</h3>
+                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ attempt.score|floatformat:2 }}%</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-500">Passing Score</h3>
+                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ attempt.exam.pass_percentage }}%</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-500">Time Taken</h3>
+                    <p class="mt-1 text-3xl font-bold text-gray-900">{{ attempt.duration|floatformat:0 }} minutes</p>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Performance Summary</h3>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Questions</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ responses|length }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Correct Answers</p>
+                            <p class="text-2xl font-bold text-green-600">
+                                {{ responses|length|subtract:incorrect_count }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Incorrect Answers</p>
+                            <p class="text-2xl font-bold text-red-600">{{ incorrect_count }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Question Review</h3>
+                <div class="space-y-4">
+                    {% for response in responses %}
+                    <div class="bg-gray-50 p-4 rounded-lg {% if response.points_awarded == response.question.points %}border-l-4 border-green-500{% else %}border-l-4 border-red-500{% endif %}">
+                        <h4 class="text-sm font-medium text-gray-900">Question {{ forloop.counter }}</h4>
+                        <p class="mt-1 text-sm text-gray-600">{{ response.question.question_text }}</p>
+                        
+                        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Your Answer</p>
+                                <p class="text-sm {% if response.points_awarded == response.question.points %}text-green-600{% else %}text-red-600{% endif %}">
+                                    {{ response.student_answer|default:"No answer provided" }}
+                                </p>
+                            </div>
+                            {% if response.question.correct_answer %}
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Correct Answer</p>
+                                <p class="text-sm text-green-600">{{ response.question.correct_answer }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-3 flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-500">
+                                Points: {{ response.points_awarded|floatformat:2 }} / {{ response.question.points|floatformat:2 }}
+                            </span>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium {% if response.points_awarded == response.question.points %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if response.points_awarded == response.question.points %}Correct{% else %}Incorrect{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-center">
+        <a href="{% url 'exams:exam_list' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Back to Exams
+        </a>
+    </div>
+</div>
+{% endblock %}

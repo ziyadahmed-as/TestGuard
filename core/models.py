@@ -135,91 +135,84 @@ class Institution(models.Model):
         return user
 
 
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
 class User(AbstractUser):
     """
     Custom user model with role-based access control and institutional affiliation.
-    Extends Django's AbstractUser with enhanced educational platform features.
+    Extends Django's AbstractUser to support educational platform features.
     """
-    
+
     class Role(models.TextChoices):
-        ADMIN = 'ADMIN', 'System Administrator'
-        INSTRUCTOR = 'INSTR', 'Instructor'
-        STUDENT = 'STUD', 'Student'
+        SUPERADMIN = "SUPERADMIN", "Super Admin"
+        ADMIN = "ADMIN", "System Administrator"
+        INSTRUCTOR = "INSTR", "Instructor"
+        STUDENT = "STUD", "Student"
 
-    # Override the groups field to resolve reverse accessor clash
+    # Resolve clashes with Django's default groups and permissions reverse accessors
     groups = models.ManyToManyField(
-        'auth.Group',
-        verbose_name='groups',
+        "auth.Group",
+        verbose_name="groups",
         blank=True,
-        help_text='The groups this user belongs to.',
-        related_name='core_user_groups',
-        related_query_name='core_user_group',
+        help_text="The groups this user belongs to.",
+        related_name="core_user_groups",
+        related_query_name="core_user_group",
     )
-    
-    # Override the user_permissions field to resolve reverse accessor clash
     user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        verbose_name='user permissions',
+        "auth.Permission",
+        verbose_name="user permissions",
         blank=True,
-        help_text='Specific permissions for this user.',
-        related_name='core_user_permissions',
-        related_query_name='core_user_permission',
+        help_text="Specific permissions for this user.",
+        related_name="core_user_permissions",
+        related_query_name="core_user_permission",
     )
 
+    # Role and institutional affiliation
     role = models.CharField(
-        max_length=5, 
+        max_length=20,
         choices=Role.choices,
-        help_text="User's role within the educational platform"
+        default=Role.STUDENT,
+        help_text="User's role within the platform.",
     )
     institution = models.ForeignKey(
-        Institution, 
-        on_delete=models.CASCADE, 
-        related_name='users',
-        help_text="Educational institution the user belongs to"
+        "Institution",
+        on_delete=models.CASCADE,
+        related_name="users",
+        help_text="Institution this user belongs to.",
     )
-    title = models.CharField(
-        max_length=100, 
-        blank=True,
-        help_text="Professional or academic title"
-    )
-    department = models.CharField(
-        max_length=100, 
-        blank=True,
-        help_text="Academic or organizational department"
-    )
-    email_verified = models.BooleanField(
-        default=False,
-        help_text="Designates whether the user's email has been verified"
-    )
-    mfa_enabled = models.BooleanField(
-        default=False,
-        help_text="Designates whether multi-factor authentication is enabled"
-    )
-    last_activity = models.DateTimeField(
-        auto_now=True,
-        help_text="Timestamp of the user's last platform activity"
-    )
+
+    # Profile and security fields
+    title = models.CharField(max_length=100, blank=True, help_text="Professional or academic title.")
+    department = models.CharField(max_length=100, blank=True, help_text="Department or faculty name.")
+    email_verified = models.BooleanField(default=False, help_text="Has the user verified their email?")
+    mfa_enabled = models.BooleanField(default=False, help_text="Is multi-factor authentication enabled?")
+    last_activity = models.DateTimeField(auto_now=True, help_text="Last activity timestamp.")
+
+    # Audit fields
     created_by = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='created_users',
-        help_text="Admin user who created this account"
+        related_name="created_users",
+        help_text="Admin who created this account.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['institution', 'role', 'is_active']),
-            models.Index(fields=['email']),
-            models.Index(fields=['last_activity']),
-            models.Index(fields=['created_at']),
-            models.Index(fields=['created_by']),
+            models.Index(fields=["institution", "role", "is_active"]),
+            models.Index(fields=["email"]),
+            models.Index(fields=["last_activity"]),
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["created_by"]),
         ]
-        unique_together = ['institution', 'email']
-        ordering = ['last_name', 'first_name']
+        unique_together = ["institution", "email"]
+        ordering = ["last_name", "first_name"]
         verbose_name = "User"
         verbose_name_plural = "Users"
 
@@ -227,59 +220,69 @@ class User(AbstractUser):
         return f"{self.get_full_name()} ({self.email}) - {self.get_role_display()}"
 
     def save(self, *args, **kwargs):
-        """Ensure data validation before saving and use email as username."""
+        """Normalize email, enforce username=email convention, and validate data."""
         self.clean()
         if not self.username:
             self.username = self.email
         super().save(*args, **kwargs)
 
     def get_full_name(self):
-        """Return the user's full name with proper formatting."""
+        """Return the user's full name."""
         return f"{self.first_name} {self.last_name}".strip()
+
+    # Role helpers
+    @property
+    def is_superadmin(self):
+        return self.role == self.Role.SUPERADMIN
+
+    @property
+    def is_admin(self):
+        return self.role == self.Role.ADMIN
+
+    @property
+    def is_instructor(self):
+        return self.role == self.Role.INSTRUCTOR
+
+    @property
+    def is_student(self):
+        return self.role == self.Role.STUDENT
 
     @property
     def is_educator(self):
         """Check if user has educator privileges (Admin or Instructor)."""
-        return self.role in [User.Role.ADMIN, User.Role.INSTRUCTOR]
-
-    @property
-    def is_student(self):
-        """Check if user has student role."""
-        return self.role == User.Role.STUDENT
+        return self.role in [self.Role.ADMIN, self.Role.INSTRUCTOR]
 
     @classmethod
     def create_multiple(cls, user_data_list, institution, created_by):
         """
-        Class method to create multiple users at once.
-        
+        Bulk create multiple users for a given institution.
+
         Args:
-            user_data_list (list): List of user data dictionaries
-            institution (Institution): Target institution
-            created_by (User): Admin user creating these accounts
-            
+            user_data_list (list): List of dicts with user data.
+            institution (Institution): Institution to assign users to.
+            created_by (User): Admin who is creating the accounts.
+
         Returns:
-            dict: Creation results with statistics
+            dict: Summary of creation results.
         """
         return institution.create_multiple_users(user_data_list, created_by)
 
     def clean(self):
-        """Validate user data and ensure institutional consistency."""
+        """Validate user data before saving."""
         if self.email:
             self.email = self.email.lower()
-        
-        if self.role == User.Role.ADMIN and self.created_by and not self.created_by.is_superuser:
-            raise ValidationError("Only superusers can create admin accounts.")
-        
+
+        # Only superusers can create institution admins
+        if self.role == self.Role.ADMIN and self.created_by and not self.created_by.is_superuser:
+            raise ValidationError("Only superusers can create institution admin accounts.")
+
         super().clean()
 
     def send_welcome_email(self, password=None):
         """
-        Send welcome email to new user with login credentials.
-        
-        Args:
-            password (str): Optional password to include in welcome email
+        Send a welcome email to the user with optional login credentials.
         """
-        # Implementation would send actual email
+        # TODO: Replace with actual email logic
         print(f"Welcome email sent to {self.email}")
         if password:
             print(f"Temporary password: {password}")

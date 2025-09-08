@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Device Sessions - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:px-6">
+    <h1 class="text-2xl font-bold text-gray-900">Device Sessions</h1>
+    <p class="mt-1 text-sm text-gray-600">Manage your active device sessions and sign out from devices you no longer use.</p>
+</div>
+
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        {% if sessions %}
+        <div class="space-y-6">
+            {% for session in sessions %}
+            <div class="border border-gray-200 rounded-lg p-4 {% if not session.is_active %}bg-gray-50{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            {% if session.browser_name %}
+                            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-desktop text-blue-600"></i>
+                            </div>
+                            {% else %}
+                            <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                <i class="fas fa-question text-gray-600"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-sm font-medium text-gray-900">
+                                {% if session.browser_name %}{{ session.browser_name }} {{ session.browser_version }}{% else %}Unknown Device{% endif %}
+                            </h3>
+                            <p class="text-sm text-gray-500">
+                                {% if session.os_name %}{{ session.os_name }}{% endif %}
+                                {% if session.ip_address %} • {{ session.ip_address }}{% endif %}
+                            </p>
+                            <p class="text-xs text-gray-400 mt-1">
+                                First seen: {{ session.first_seen|date:"M d, Y H:i" }} •
+                                Last activity: {{ session.last_activity|date:"M d, Y H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        {% if session.is_active %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-3">
+                            Active
+                        </span>
+                        <form method="post" action="{% url 'deactivate_device_session' session.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Sign Out
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Inactive
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-laptop text-gray-300 text-4xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900">No device sessions found</h3>
+            <p class="mt-1 text-sm text-gray-500">You don't have any active device sessions at the moment.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Security Information</h3>
+        <div class="prose prose-sm text-gray-500">
+            <p>Device sessions help keep your account secure by allowing you to see and manage the devices that are currently signed in to your account.</p>
+            <ul class="list-disc pl-5 mt-2">
+                <li>Each device session represents a browser or device where you're signed in</li>
+                <li>You can sign out of any device that you no longer use or recognize</li>
+                <li>Sessions automatically expire after a period of inactivity</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

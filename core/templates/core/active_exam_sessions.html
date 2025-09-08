@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Active Exam Sessions - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:px-6">
+    <h1 class="text-2xl font-bold text-gray-900">Active Exam Sessions</h1>
+    <p class="mt-1 text-sm text-gray-600">Monitor and manage currently active exam sessions.</p>
+</div>
+
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="flex flex-col">
+        <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for session in sessions %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10">
+                                            <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                                <span class="text-indigo-800 font-medium">{{ session.user.first_name|first }}{{ session.user.last_name|first }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">{{ session.user.get_full_name }}</div>
+                                            <div class="text-sm text-gray-500">{{ session.user.email }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ session.exam.title }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ session.started_at|date:"M d, Y H:i" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ session.last_activity|date:"M d, Y H:i" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ session.duration_minutes|floatformat:0 }} minutes</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if session.is_active %}bg-green-100 text-green-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {% if session.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    {% if session.is_active and request.user.is_educator %}
+                                    <form method="post" action="{% url 'terminate_exam_session' session.pk %}" class="inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="reason" value="Terminated by instructor">
+                                        <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Are you sure you want to terminate this exam session?')">
+                                            <i class="fas fa-times-circle"></i> Terminate
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No active exam sessions found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if request.user.is_student %}
+<div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Exam Session Guidelines</h3>
+        <div class="prose prose-sm text-gray-500">
+            <p>When taking exams through our platform, please adhere to the following guidelines:</p>
+            <ul class="list-disc pl-5 mt-2">
+                <li>Ensure you have a stable internet connection before starting an exam</li>
+                <li>Do not switch browser tabs or applications during the exam</li>
+                <li>Do not attempt to refresh the page during an active exam session</li>
+                <li>Any suspicious activity may result in session termination</li>
+                <li>If you experience technical issues, contact your instructor immediately</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

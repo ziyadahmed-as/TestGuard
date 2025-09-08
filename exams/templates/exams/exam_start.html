@@ -1,0 +1,222 @@
+<!-- exams/templates/exams/exam_take.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Taking Exam - {{ attempt.exam.title }} - TestGuard Platform{% endblock %}
+
+{% block extra_head %}
+<script>
+    let timeRemaining = {{ time_remaining }};
+    let examDuration = {{ attempt.exam.duration }} * 60;
+    
+    function updateTimer() {
+        if (timeRemaining <= 0) {
+            document.getElementById('exam-form').submit();
+            return;
+        }
+        
+        timeRemaining--;
+        
+        const hours = Math.floor(timeRemaining / 3600);
+        const minutes = Math.floor((timeRemaining % 3600) / 60);
+        const seconds = timeRemaining % 60;
+        
+        document.getElementById('timer').textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Update progress bar
+        const progressPercent = ((examDuration - timeRemaining) / examDuration) * 100;
+        document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+    }
+    
+    // Auto-save function
+    function autoSave(answerData) {
+        fetch("{% url 'exams:save_response_draft' attempt.pk current_response.question.pk %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ answer: answerData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Auto-save successful');
+            }
+        })
+        .catch(error => {
+            console.error('Auto-save error:', error);
+        });
+    }
+    
+    // Initialize timer when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setInterval(updateTimer, 1000);
+        updateTimer(); // Initial call
+        
+        // Set up auto-save for text inputs
+        const answerInputs = document.querySelectorAll('input[name="student_answer"], textarea[name="student_answer"]');
+        answerInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                if (this.type === 'radio' || this.type === 'checkbox') {
+                    if (this.checked) {
+                        autoSave(this.value);
+                    }
+                } else {
+                    autoSave(this.value);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-screen">
+    <!-- Exam Header -->
+    <div class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">{{ attempt.exam.title }}</h1>
+                    <p class="text-sm text-gray-500">Question {{ forloop.counter }} of {{ responses|length }}</p>
+                </div>
+                <div class="flex items-center">
+                    <div class="mr-4 bg-gray-100 px-3 py-1 rounded-md">
+                        <span class="text-sm font-medium text-gray-700">Time Remaining:</span>
+                        <span id="timer" class="ml-2 text-sm font-bold text-red-600">00:00:00</span>
+                    </div>
+                    <form id="exam-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="question_id" value="{{ current_response.question.pk }}">
+                        <input type="hidden" name="submit_exam" value="true">
+                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Submit Exam
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-1.5 mb-4">
+                <div id="progress-bar" class="bg-blue-600 h-1.5 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- Questions Navigation -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-700">Questions</h3>
+                        </div>
+                        <div class="px-4 py-4 sm:p-6">
+                            <div class="grid grid-cols-5 gap-2">
+                                {% for response in responses %}
+                                <a href="?question={{ response.question.pk }}" class="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium 
+                                    {% if response.question.pk == current_response.question.pk %}bg-blue-600 text-white
+                                    {% elif response.is_submitted %}bg-green-100 text-green-800
+                                    {% elif response.has_draft %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ forloop.counter }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Question Content -->
+                <div class="lg:col-span-3">
+                    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h2 class="text-lg font-medium text-gray-900 mb-4">
+                                {{ current_response.question.question_text }}
+                            </h2>
+                            
+                            <p class="text-sm text-gray-500 mb-6">
+                                <span class="font-medium">Points:</span> {{ current_response.question.points }} • 
+                                <span class="font-medium">Type:</span> {{ current_response.question.get_type_display }}
+                            </p>
+                            
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="question_id" value="{{ current_response.question.pk }}">
+                                
+                                <div class="mb-6">
+                                    {% if current_response.question.type == 'MC' %}
+                                        <!-- Multiple Choice -->
+                                        {% for choice in current_response.question.choices.all %}
+                                        <div class="flex items-center mb-2">
+                                            <input id="choice-{{ choice.id }}" name="student_answer" type="radio" value="{{ choice.id }}" 
+                                                class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300" 
+                                                {% if form.student_answer.value == choice.id|stringformat:"s" %}checked{% endif %}>
+                                            <label for="choice-{{ choice.id }}" class="ml-3 block text-sm font-medium text-gray-700">
+                                                {{ choice.text }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    
+                                    {% elif current_response.question.type == 'TF' %}
+                                        <!-- True/False -->
+                                        <div class="flex items-center mb-2">
+                                            <input id="answer-true" name="student_answer" type="radio" value="true" 
+                                                class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300" 
+                                                {% if form.student_answer.value == 'true' %}checked{% endif %}>
+                                            <label for="answer-true" class="ml-3 block text-sm font-medium text-gray-700">
+                                                True
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center mb-2">
+                                            <input id="answer-false" name="student_answer" type="radio" value="false" 
+                                                class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300" 
+                                                {% if form.student_answer.value == 'false' %}checked{% endif %}>
+                                            <label for="answer-false" class="ml-3 block text-sm font-medium text-gray-700">
+                                                False
+                                            </label>
+                                        </div>
+                                    
+                                    {% else %}
+                                        <!-- Text-based answers -->
+                                        {{ form.student_answer }}
+                                    {% endif %}
+                                    
+                                    {% if form.student_answer.errors %}
+                                    <p class="mt-2 text-sm text-red-600">
+                                        {% for error in form.student_answer.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="flex justify-between">
+                                    {% if allow_backtracking and not forloop.first %}
+                                    <a href="?question={{ responses|previous:forloop.counter0 }.question.pk}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Previous
+                                    </a>
+                                    {% else %}
+                                    <div></div>
+                                    {% endif %}
+                                    
+                                    <div class="flex space-x-2">
+                                        <button type="submit" name="save_draft" value="true" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                            Save Draft
+                                        </button>
+                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                            Save Answer
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

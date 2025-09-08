@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard - TestGuard Platform{% endblock %}
+
+{% block page_title %}Dashboard Overview{% endblock %}
+{% block page_description %}Welcome back, {{ user.get_full_name }}. Here's an overview of your activities.{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- User Summary Card -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+        <div class="flex items-center mb-4">
+            <div class="flex-shrink-0 h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                {% if user.role == 'STUDENT' %}
+                <i class="fas fa-user-graduate text-indigo-600 text-xl"></i>
+                {% elif user.role == 'INSTRUCTOR' %}
+                <i class="fas fa-chalkboard-teacher text-indigo-600 text-xl"></i>
+                {% else %}
+                <i class="fas fa-user-shield text-indigo-600 text-xl"></i>
+                {% endif %}
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-800">{{ user.get_full_name }}</h3>
+                <p class="text-sm text-gray-500 capitalize">{{ user.get_role_display }}</p>
+            </div>
+        </div>
+        <div class="border-t border-gray-100 pt-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">Institution</p>
+                    <p class="font-medium text-gray-800">{{ user.institution.name|default:"Not assigned" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Department</p>
+                    <p class="font-medium text-gray-800">{{ user.department|default:"Not assigned" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm lg:col-span-2 card-hover">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Stats</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% if user.is_admin %}
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600">{{ user_count }}</div>
+                <p class="text-sm text-gray-600">Total Users</p>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">{{ student_count }}</div>
+                <p class="text-sm text-gray-600">Students</p>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600">{{ instructor_count }}</div>
+                <p class="text-sm text-gray-600">Instructors</p>
+            </div>
+            <div class="text-center p-4 bg-amber-50 rounded-lg">
+                <div class="text-2xl font-bold text-amber-600">{{ department_count }}</div>
+                <p class="text-sm text-gray-600">Departments</p>
+            </div>
+            {% elif user.is_instructor %}
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600">{{ teaching_sections|length }}</div>
+                <p class="text-sm text-gray-600">Teaching Sections</p>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">{{ student_count }}</div>
+                <p class="text-sm text-gray-600">Students</p>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600">0</div>
+                <p class="text-sm text-gray-600">Created Exams</p>
+            </div>
+            <div class="text-center p-4 bg-amber-50 rounded-lg">
+                <div class="text-2xl font-bold text-amber-600">0</div>
+                <p class="text-sm text-gray-600">Pending Reviews</p>
+            </div>
+            {% elif user.is_student %}
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600">{{ enrollments|length }}</div>
+                <p class="text-sm text-gray-600">Enrolled Courses</p>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">0</div>
+                <p class="text-sm text-gray-600">Completed Exams</p>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600">0</div>
+                <p class="text-sm text-gray-600">Upcoming Exams</p>
+            </div>
+            <div class="text-center p-4 bg-amber-50 rounded-lg">
+                <div class="text-2xl font-bold text-amber-600">0%</div>
+                <p class="text-sm text-gray-600">Average Score</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Quick Access -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Access</h3>
+        <div class="grid grid-cols-2 gap-4">
+            {% if user.is_admin %}
+            <a href="{% url 'user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-blue-600 mb-2">
+                    <i class="fas fa-user-plus text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Create User</span>
+            </a>
+            <a href="{% url 'institution_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-green-600 mb-2">
+                    <i class="fas fa-school text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Create Institution</span>
+            </a>
+            <a href="{% url 'bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-purple-600 mb-2">
+                    <i class="fas fa-file-import text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
+            </a>
+            <a href="{% url 'admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-amber-600 mb-2">
+                    <i class="fas fa-history text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Activity Logs</span>
+            </a>
+            {% elif user.is_instructor %}
+            <a href="{% url 'course_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-blue-600 mb-2">
+                    <i class="fas fa-book text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Courses</span>
+            </a>
+            <a href="{% url 'section_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-green-600 mb-2">
+                    <i class="fas fa-chalkboard text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Sections</span>
+            </a>
+            <a href="{% url 'enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-purple-600 mb-2">
+                    <i class="fas fa-user-graduate text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Enrollments</span>
+            </a>
+            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-amber-600 mb-2">
+                    <i class="fas fa-eye text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Monitoring</span>
+            </a>
+            {% elif user.is_student %}
+            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-blue-600 mb-2">
+                    <i class="fas fa-file-alt text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Exams</span>
+            </a>
+            <a href="{% url 'enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-green-600 mb-2">
+                    <i class="fas fa-book text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Courses</span>
+            </a>
+            <a href="{% url 'profile' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-purple-600 mb-2">
+                    <i class="fas fa-user text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Profile</span>
+            </a>
+            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-amber-600 mb-2">
+                    <i class="fas fa-chart-line text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Results</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+        <div class="space-y-4">
+            {% if user.is_authenticated %}
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="p-2 bg-blue-100 rounded-full text-blue-600">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-gray-900">Login successful</p>
+                        <p class="text-sm text-gray-500">You logged in to your account</p>
+                        <p class="text-xs text-gray-400 mt-1">Just now</p>
+                    </div>
+                </div>
+                
+                {% if user.is_admin %}
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="p-2 bg-green-100 rounded-full text-green-600">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-gray-900">User management</p>
+                        <p class="text-sm text-gray-500">You viewed the user list</p>
+                        <p class="text-xs text-gray-400 mt-1">Today</p>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-8">
+                    <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                    <p class="text-gray-500">No recent activity</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upcoming Exams Section -->
+{% if user.is_student or user.is_instructor %}
+<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Upcoming Exams</h3>
+        <a href="#" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-file-alt text-indigo-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">Midterm Examination</div>
+                                <div class="text-sm text-gray-500">Computer Science 101</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        Oct 15, 2023 10:00 AM
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        120 minutes
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            Scheduled
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-file-alt text-green-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">Final Assessment</div>
+                                <div class="text-sm text-gray-500">Mathematics 202</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        Dec 5, 2023 2:00 PM
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        90 minutes
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            Scheduled
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Enrollments (for students) -->
+{% if user.is_student and enrollments %}
+<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">My Enrollments</h3>
+        <a href="{% url 'enrollment_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled On</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for enrollment in enrollments|slice:":3" %}
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ enrollment.section.course.name }}</div>
+                        <div class="text-sm text-gray-500">{{ enrollment.section.course.code }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ enrollment.section.section_code }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ enrollment.section.instructor.get_full_name }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ enrollment.enrolled_on|date:"M d, Y" }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if enrollment.is_active %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {% if enrollment.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- System Status (for admins) -->
+{% if user.is_admin %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Recent Users -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Recently Created Users</h3>
+            <a href="{% url 'user_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        </div>
+        <div class="space-y-4">
+            {% for recent_user in users|slice:":3" %}
+            <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center font-medium text-gray-700">
+                    {{ recent_user.first_name|first }}{{ recent_user.last_name|first }}
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-900">{{ recent_user.get_full_name }}</div>
+                    <div class="text-sm text-gray-500 capitalize">{{ recent_user.get_role_display }}</div>
+                </div>
+                <div class="ml-auto text-xs text-gray-400">
+                    {{ recent_user.date_joined|timesince }} ago
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-4 text-sm text-gray-500">
+                No recent users
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Logs -->
+    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Recent Activity Logs</h3>
+            <a href="{% url 'admin_user_creation_log_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        </div>
+        <div class="space-y-4">
+            {% for log in creation_logs|slice:":3" %}
+            <div class="flex items-start">
+                <div class="flex-shrink-0 mt-1">
+                    <div class="p-2 bg-blue-100 rounded-full text-blue-600">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                </div>
+                <div class="ml-3 flex-1">
+                    <div class="text-sm font-medium text-gray-900">
+                        {{ log.created_by.get_full_name }} created {{ log.users_created }} users
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ log.institution.name }}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">
+                        {{ log.created_at|timesince }} ago
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-4 text-sm text-gray-500">
+                No recent activity logs
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

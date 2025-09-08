@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user_profile.get_full_name }} - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-gray-900">{{ user_profile.get_full_name }}</h1>
+    <div>
+        <a href="{% url 'user_update' user_profile.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 mr-2">
+            <i class="fas fa-edit mr-2"></i> Edit
+        </a>
+        <a href="{% url 'user_toggle_active' user_profile.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white {% if user_profile.is_active %}bg-red-600 hover:bg-red-700 focus:ring-red-500{% else %}bg-green-600 hover:bg-green-700 focus:ring-green-500{% endif %} focus:outline-none focus:ring-2 focus:ring-offset-2">
+            {% if user_profile.is_active %}<i class="fas fa-times-circle mr-2"></i> Deactivate{% else %}<i class="fas fa-check-circle mr-2"></i> Activate{% endif %}
+        </a>
+    </div>
+</div>
+
+<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">User Information</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <dl>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Full Name</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.get_full_name }}</dd>
+            </div>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Email</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.email }}</dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Role</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        {% if user_profile.role == 'ADMIN' %}bg-purple-100 text-purple-800
+                        {% elif user_profile.role == 'INSTR' %}bg-blue-100 text-blue-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ user_profile.get_role_display }}
+                    </span>
+                </dd>
+            </div>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Institution</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.institution.name }}</dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Title</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.title|default:"Not specified" }}</dd>
+            </div>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Department</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.department|default:"Not specified" }}</dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Status</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        {% if user_profile.is_active %}bg-green-100 text-green-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                        {% if user_profile.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </dd>
+            </div>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Email Verified</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {% if user_profile.email_verified %}Yes{% else %}No{% endif %}
+                </dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">MFA Enabled</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {% if user_profile.mfa_enabled %}Yes{% else %}No{% endif %}
+                </dd>
+            </div>
+            <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Last Activity</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.last_activity|date:"M d, Y H:i"|default:"Never" }}</dd>
+            </div>
+            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500">Created</dt>
+                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ user_profile.created_at|date:"M d, Y H:i" }}</dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+{% if user_profile.is_student and enrollments %}
+<!-- Enrollments Section -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Course Enrollments</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Course</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Section</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Enrolled On</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        {% for enrollment in enrollments %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ enrollment.section.course.code }} - {{ enrollment.section.course.name }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ enrollment.section.section_code }} ({{ enrollment.section.term }} {{ enrollment.section.year }})</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ enrollment.enrolled_on|date:"M d, Y" }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {% if enrollment.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if enrollment.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if user_profile.is_educator and teaching_sections %}
+<!-- Teaching Sections Section -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Teaching Sections</h3>
+    </div>
+    <div class="border-t border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Course</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Section</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Term/Year</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Enrollments</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        {% for section in teaching_sections %}
+                        <tr>
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ section.course.code }} - {{ section.course.name }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ section.section_code }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ section.term }} {{ section.year }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ section.enrollment_count }}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {% if section.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if section.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

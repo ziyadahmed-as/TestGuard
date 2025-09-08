@@ -1,0 +1,128 @@
+<!-- exams/templates/exams/exam_question_manage.html -->
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Questions - {{ exam.title }} - TestGuard Platform{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+    <div class="flex-1 min-w-0">
+        <h1 class="text-3xl font-bold text-gray-900">Manage Questions: {{ exam.title }}</h1>
+    </div>
+    <div class="mt-4 flex md:mt-0 md:ml-4">
+        <a href="{% url 'exams:exam_detail' exam.pk %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Back to Exam
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Add Question Form -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Add Question to Exam</h3>
+        </div>
+        <div class="px-4 py-5 sm:p-6">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="rounded-md bg-red-50 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">
+                                There were errors with your submission
+                            </h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <ul class="list-disc pl-5 space-y-1">
+                                    {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="grid grid-cols-1 gap-4">
+                    {% for field in form %}
+                    <div>
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            {{ field.label }}
+                            {% if field.field.required %}
+                            <span class="text-red-500">*</span>
+                            {% endif %}
+                        </label>
+                        
+                        <div class="mt-1">
+                            {{ field }}
+                        </div>
+                        
+                        {% if field.help_text %}
+                        <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
+                        {% endif %}
+                        
+                        {% if field.errors %}
+                        <p class="mt-2 text-sm text-red-600">
+                            {% for error in field.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-6">
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Add Question
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Existing Questions -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Exam Questions</h3>
+        </div>
+        <div class="px-4 py-5 sm:p-6">
+            {% if exam_questions %}
+            <ul class="divide-y divide-gray-200">
+                {% for exam_question in exam_questions %}
+                <li class="py-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">
+                                Q{{ exam_question.order }}: {{ exam_question.question.question_text|truncatewords:10 }}
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                Type: {{ exam_question.question.get_type_display }} • 
+                                Points: {{ exam_question.points }}
+                            </p>
+                        </div>
+                        <form method="post" action="{% url 'exams:exam_question_remove' exam.pk exam_question.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="ml-4 inline-flex items-center p-1 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500">No questions have been added to this exam yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

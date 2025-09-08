@@ -12,8 +12,10 @@ coverage/
 # ignore IDE specific files
 .vscode/
 .idea/  
-*.sublime-project
-*.sublime-workspace
+*.db
+*.suo
+
+
 # ignore temporary files
 *.tmp
 *.swp
@@ -25,7 +27,9 @@ test-results/
 *.class
 *.o
 #python cache
-__pycache__/    
+
+__pycache__/ 
+.__pycache__   
 *.pyc
 *.pyo
 # ignore package files
