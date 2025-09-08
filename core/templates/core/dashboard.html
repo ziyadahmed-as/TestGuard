@@ -4,7 +4,7 @@
 {% block title %}Dashboard - TestGuard Platform{% endblock %}
 
 {% block page_title %}Dashboard Overview{% endblock %}
-{% block page_description %}Welcome back, {{ user.get_full_name }}. Here's an overview of your activities.{% endblock %}
+{% block page_description %}Welcome back, {{ user.get_full_name|default:user.username }}. Here's an overview of your activities.{% endblock %}
 
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -12,17 +12,29 @@
     <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
         <div class="flex items-center mb-4">
             <div class="flex-shrink-0 h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                {% if user.role == 'STUDENT' %}
+                {% if user.is_student %}
                 <i class="fas fa-user-graduate text-indigo-600 text-xl"></i>
-                {% elif user.role == 'INSTRUCTOR' %}
+                {% elif user.is_instructor %}
                 <i class="fas fa-chalkboard-teacher text-indigo-600 text-xl"></i>
-                {% else %}
+                {% elif user.is_admin %}
+                <i class="fas fa-user-cog text-indigo-600 text-xl"></i>
+                {% elif user.is_superadmin %}
                 <i class="fas fa-user-shield text-indigo-600 text-xl"></i>
+                {% else %}
+                <i class="fas fa-user text-indigo-600 text-xl"></i>
                 {% endif %}
             </div>
             <div class="ml-4">
-                <h3 class="text-lg font-semibold text-gray-800">{{ user.get_full_name }}</h3>
-                <p class="text-sm text-gray-500 capitalize">{{ user.get_role_display }}</p>
+                <h3 class="text-lg font-semibold text-gray-800">{{ user.get_full_name|default:user.username }}</h3>
+                <p class="text-sm text-gray-500 capitalize">
+                    <span class="role-badge 
+                        {% if user.is_superadmin %}badge-superadmin
+                        {% elif user.is_admin %}badge-admin
+                        {% elif user.is_instructor %}badge-instructor
+                        {% else %}badge-student{% endif %}">
+                        {{ user.get_role_display }}
+                    </span>
+                </p>
             </div>
         </div>
         <div class="border-t border-gray-100 pt-4">
@@ -43,7 +55,24 @@
     <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm lg:col-span-2 card-hover">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Stats</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {% if user.is_admin %}
+            {% if user.is_superadmin %}
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600">{{ institution_count }}</div>
+                <p class="text-sm text-gray-600">Institutions</p>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">{{ user_count }}</div>
+                <p class="text-sm text-gray-600">Total Users</p>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600">{{ student_count }}</div>
+                <p class="text-sm text-gray-600">Students</p>
+            </div>
+            <div class="text-center p-4 bg-amber-50 rounded-lg">
+                <div class="text-2xl font-bold text-amber-600">{{ instructor_count }}</div>
+                <p class="text-sm text-gray-600">Instructors</p>
+            </div>
+            {% elif user.is_admin %}
             <div class="text-center p-4 bg-blue-50 rounded-lg">
                 <div class="text-2xl font-bold text-blue-600">{{ user_count }}</div>
                 <p class="text-sm text-gray-600">Total Users</p>
@@ -104,80 +133,105 @@
     <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Access</h3>
         <div class="grid grid-cols-2 gap-4">
-            {% if user.is_admin %}
-            <a href="{% url 'user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            {% if user.is_superadmin %}
+            <a href="{% url 'core:user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-user-plus text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create User</span>
             </a>
-            <a href="{% url 'institution_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:institution_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-school text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create Institution</span>
             </a>
-            <a href="{% url 'bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-purple-600 mb-2">
                     <i class="fas fa-file-import text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
             </a>
-            <a href="{% url 'admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-amber-600 mb-2">
+                    <i class="fas fa-history text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Activity Logs</span>
+            </a>
+            {% elif user.is_admin %}
+            <a href="{% url 'core:user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-blue-600 mb-2">
+                    <i class="fas fa-user-plus text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Create User</span>
+            </a>
+            <a href="{% url 'core:academic_department_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-green-600 mb-2">
+                    <i class="fas fa-graduation-cap text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Create Department</span>
+            </a>
+            <a href="{% url 'core:bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-purple-600 mb-2">
+                    <i class="fas fa-file-import text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
+            </a>
+            <a href="{% url 'core:admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-amber-600 mb-2">
                     <i class="fas fa-history text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Activity Logs</span>
             </a>
             {% elif user.is_instructor %}
-            <a href="{% url 'course_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:course_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-book text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Courses</span>
             </a>
-            <a href="{% url 'section_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:section_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-chalkboard text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Sections</span>
             </a>
-            <a href="{% url 'enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-purple-600 mb-2">
                     <i class="fas fa-user-graduate text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Enrollments</span>
             </a>
-            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:monitoring_events' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-amber-600 mb-2">
                     <i class="fas fa-eye text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Monitoring</span>
             </a>
             {% elif user.is_student %}
-            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-file-alt text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Exams</span>
             </a>
-            <a href="{% url 'enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-book text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Courses</span>
             </a>
-            <a href="{% url 'profile' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:profile' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-purple-600 mb-2">
                     <i class="fas fa-user text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Profile</span>
             </a>
-            <a href="#" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'core:device_sessions' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-amber-600 mb-2">
-                    <i class="fas fa-chart-line text-2xl"></i>
+                    <i class="fas fa-laptop text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">My Results</span>
+                <span class="text-sm font-medium text-gray-700">My Devices</span>
             </a>
             {% endif %}
         </div>
@@ -201,7 +255,7 @@
                     </div>
                 </div>
                 
-                {% if user.is_admin %}
+                {% if user.is_superadmin or user.is_admin %}
                 <div class="flex items-start">
                     <div class="flex-shrink-0 mt-1">
                         <div class="p-2 bg-green-100 rounded-full text-green-600">
@@ -230,7 +284,7 @@
 <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-gray-800">Upcoming Exams</h3>
-        <a href="#" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        <a href="{% url 'exams:exam_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -302,7 +356,7 @@
 <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-gray-800">My Enrollments</h3>
-        <a href="{% url 'enrollment_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        <a href="{% url 'core:enrollment_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -347,26 +401,26 @@
 {% endif %}
 
 <!-- System Status (for admins) -->
-{% if user.is_admin %}
+{% if user.is_superadmin or user.is_admin %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Recent Users -->
     <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Recently Created Users</h3>
-            <a href="{% url 'user_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+            <a href="{% url 'core:user_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
         </div>
         <div class="space-y-4">
-            {% for recent_user in users|slice:":3" %}
+            {% for recent_user in recent_users|slice:":3" %}
             <div class="flex items-center">
                 <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center font-medium text-gray-700">
-                    {{ recent_user.first_name|first }}{{ recent_user.last_name|first }}
+                    {{ recent_user.first_name|first|upper }}{{ recent_user.last_name|first|upper }}
                 </div>
                 <div class="ml-4">
                     <div class="text-sm font-medium text-gray-900">{{ recent_user.get_full_name }}</div>
                     <div class="text-sm text-gray-500 capitalize">{{ recent_user.get_role_display }}</div>
                 </div>
                 <div class="ml-auto text-xs text-gray-400">
-                    {{ recent_user.date_joined|timesince }} ago
+                    {{ recent_user.created_at|timesince }} ago
                 </div>
             </div>
             {% empty %}
@@ -381,7 +435,7 @@
     <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Recent Activity Logs</h3>
-            <a href="{% url 'admin_user_creation_log_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+            <a href="{% url 'core:admin_user_creation_log_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
         </div>
         <div class="space-y-4">
             {% for log in creation_logs|slice:":3" %}

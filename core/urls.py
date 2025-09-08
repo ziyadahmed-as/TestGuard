@@ -5,15 +5,15 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
-    # Authentication URLs - Using CustomLoginView instead of default
+    # Authentication URLs
     path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
     
     # Dashboard and Profile
     path('', views.dashboard, name='dashboard'),
     path('profile/', views.profile, name='profile'),
     
-    # Institution URLs
+    # Institution URLs (Superadmin only)
     path('institutions/', views.InstitutionListView.as_view(), name='institution_list'),
     path('institutions/create/', views.InstitutionCreateView.as_view(), name='institution_create'),
     path('institutions/<int:pk>/', views.InstitutionDetailView.as_view(), name='institution_detail'),

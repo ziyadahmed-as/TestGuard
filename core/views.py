@@ -38,7 +38,11 @@ class CustomLogoutView(LoginView):
     
     def get_next_page(self):
         return reverse('login')
+
 # Utility functions
+def is_superadmin(user):
+    return user.is_authenticated and user.role == User.Role.SUPERADMIN
+
 def is_admin(user):
     return user.is_authenticated and user.role == User.Role.ADMIN
 
@@ -48,9 +52,17 @@ def is_instructor(user):
 def is_student(user):
     return user.is_authenticated and user.role == User.Role.STUDENT
 
+def superadmin_required(view_func):
+    decorated_view_func = login_required(user_passes_test(
+        is_superadmin, 
+        login_url='login',
+        redirect_field_name=None
+    )(view_func))
+    return decorated_view_func
+
 def admin_required(view_func):
     decorated_view_func = login_required(user_passes_test(
-        is_admin, 
+        lambda u: is_admin(u) or is_superadmin(u),
         login_url='login',
         redirect_field_name=None
     )(view_func))
@@ -58,7 +70,7 @@ def admin_required(view_func):
 
 def instructor_required(view_func):
     decorated_view_func = login_required(user_passes_test(
-        lambda u: is_instructor(u) or is_admin(u),
+        lambda u: is_instructor(u) or is_admin(u) or is_superadmin(u),
         login_url='login',
         redirect_field_name=None
     )(view_func))
@@ -69,8 +81,22 @@ def instructor_required(view_func):
 def dashboard(request):
     context = {}
     
-    if request.user.is_admin:
-        # Admin dashboard
+    if request.user.is_superadmin:
+        # Superadmin dashboard - show all institutions
+        context['institutions'] = Institution.objects.all()
+        context['user_count'] = User.objects.filter(is_active=True).count()
+        context['student_count'] = User.objects.filter(
+            role=User.Role.STUDENT,
+            is_active=True
+        ).count()
+        context['instructor_count'] = User.objects.filter(
+            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+            is_active=True
+        ).count()
+        context['institution_count'] = Institution.objects.filter(is_active=True).count()
+        
+    elif request.user.is_admin:
+        # Admin dashboard - show only their institution
         context['institution'] = request.user.institution
         context['user_count'] = User.objects.filter(
             institution=request.user.institution, 
@@ -116,7 +142,7 @@ def dashboard(request):
     return render(request, 'dashboard.html', context)
 
 # Institution Views
-@method_decorator(admin_required, name='dispatch')
+@method_decorator(superadmin_required, name='dispatch')
 class InstitutionListView(ListView):
     model = Institution
     template_name = 'institution_list.html'
@@ -140,7 +166,7 @@ class InstitutionListView(ListView):
         context['filter_form'] = InstitutionFilterForm(self.request.GET)
         return context
 
-@method_decorator(admin_required, name='dispatch')
+@method_decorator(superadmin_required, name='dispatch')
 class InstitutionCreateView(CreateView):
     model = Institution
     form_class = InstitutionForm
@@ -151,7 +177,7 @@ class InstitutionCreateView(CreateView):
         messages.success(self.request, 'Institution created successfully.')
         return super().form_valid(form)
 
-@method_decorator(admin_required, name='dispatch')
+@method_decorator(superadmin_required, name='dispatch')
 class InstitutionUpdateView(UpdateView):
     model = Institution
     form_class = InstitutionForm
@@ -168,13 +194,20 @@ class InstitutionDetailView(DetailView):
     template_name = 'institution_detail.html'
     context_object_name = 'institution'
     
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can only view their own institution unless they're superadmins
+        obj = self.get_object()
+        if not request.user.is_superadmin and obj != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['user_count'] = self.object.user_count
         context['departments'] = self.object.departments.filter(is_active=True)
         return context
 
-@admin_required
+@superadmin_required
 def institution_toggle_active(request, pk):
     institution = get_object_or_404(Institution, pk=pk)
     institution.is_active = not institution.is_active
@@ -194,13 +227,17 @@ class UserListView(ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        queryset = User.objects.select_related('institution')
+        if self.request.user.is_superadmin:
+            queryset = User.objects.select_related('institution')
+        else:
+            queryset = User.objects.filter(institution=self.request.user.institution).select_related('institution')
+            
         form = UserFilterForm(self.request.GET)
         
         if form.is_valid():
             if form.cleaned_data.get('role'):
                 queryset = queryset.filter(role=form.cleaned_data['role'])
-            if form.cleaned_data.get('institution'):
+            if form.cleaned_data.get('institution') and self.request.user.is_superadmin:
                 queryset = queryset.filter(institution=form.cleaned_data['institution'])
             if form.cleaned_data.get('is_active') is not None:
                 queryset = queryset.filter(is_active=form.cleaned_data['is_active'])
@@ -212,6 +249,9 @@ class UserListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filter_form'] = UserFilterForm(self.request.GET)
+        # For non-superadmins, remove the institution filter
+        if not self.request.user.is_superadmin:
+            context['filter_form'].fields.pop('institution')
         return context
 
 @method_decorator(admin_required, name='dispatch')
@@ -224,9 +264,24 @@ class UserCreateView(CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['created_by'] = self.request.user
+        # For non-superadmins, limit institution to their own
+        if not self.request.user.is_superadmin:
+            kwargs['initial'] = {'institution': self.request.user.institution}
         return kwargs
     
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # For non-superadmins, limit institution choices to their own
+        if not self.request.user.is_superadmin:
+            form.fields['institution'].queryset = Institution.objects.filter(id=self.request.user.institution.id)
+            form.fields['institution'].disabled = True
+        return form
+    
     def form_valid(self, form):
+        # For non-superadmins, force the institution to be their own
+        if not self.request.user.is_superadmin:
+            form.instance.institution = self.request.user.institution
+            
         response = super().form_valid(form)
         messages.success(self.request, 'User created successfully.')
         
@@ -260,9 +315,26 @@ class UserUpdateView(UpdateView):
         obj = self.get_object()
         if not (request.user.is_admin or request.user == obj):
             raise PermissionDenied
+            
+        # Admins can only edit users in their institution unless they're superadmins
+        if request.user.is_admin and not request.user.is_superadmin and obj.institution != request.user.institution:
+            raise PermissionDenied
+            
         return super().dispatch(request, *args, **kwargs)
     
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # For non-superadmins, limit institution choices to their own and disable the field
+        if not self.request.user.is_superadmin:
+            form.fields['institution'].queryset = Institution.objects.filter(id=self.request.user.institution.id)
+            form.fields['institution'].disabled = True
+        return form
+    
     def form_valid(self, form):
+        # For non-superadmins, force the institution to be their own
+        if not self.request.user.is_superadmin:
+            form.instance.institution = self.request.user.institution
+            
         messages.success(self.request, 'User updated successfully.')
         return super().form_valid(form)
 
@@ -277,6 +349,11 @@ class UserDetailView(DetailView):
         obj = self.get_object()
         if not (request.user.is_admin or request.user == obj):
             raise PermissionDenied
+            
+        # Admins can only view users in their institution unless they're superadmins
+        if request.user.is_admin and not request.user.is_superadmin and obj.institution != request.user.institution:
+            raise PermissionDenied
+            
         return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
@@ -290,6 +367,10 @@ class UserDetailView(DetailView):
 @admin_required
 def user_toggle_active(request, pk):
     user = get_object_or_404(User, pk=pk)
+    
+    # Check if admin has permission to modify this user
+    if not request.user.is_superadmin and user.institution != request.user.institution:
+        raise PermissionDenied
     
     # Prevent users from deactivating themselves
     if request.user == user:
@@ -310,7 +391,12 @@ def bulk_user_upload(request):
         form = BulkUserUploadForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                institution = form.cleaned_data['institution']
+                # For non-superadmins, force the institution to be their own
+                if not request.user.is_superadmin:
+                    institution = request.user.institution
+                else:
+                    institution = form.cleaned_data['institution']
+                    
                 user_data_list = form.cleaned_data['csv_file']
                 
                 # Create users using the institution's method
@@ -341,6 +427,11 @@ def bulk_user_upload(request):
                 messages.error(request, f'Error processing upload: {str(e)}')
     else:
         form = BulkUserUploadForm()
+        
+        # For non-superadmins, set the initial institution to their own
+        if not request.user.is_superadmin:
+            form.fields['institution'].initial = request.user.institution
+            form.fields['institution'].disabled = True
     
     return render(request, 'bulk_user_upload.html', {'form': form})
 
@@ -381,7 +472,7 @@ class AdminUserCreationLogListView(ListView):
     
     def get_queryset(self):
         # Admins can only see logs for their own institution unless they're superusers
-        if self.request.user.is_superuser:
+        if self.request.user.is_superadmin:
             return AdminUserCreationLog.objects.select_related('created_by', 'institution')
         else:
             return AdminUserCreationLog.objects.filter(
@@ -393,6 +484,13 @@ class AdminUserCreationLogDetailView(DetailView):
     model = AdminUserCreationLog
     template_name = 'admin_user_creation_log_detail.html'
     context_object_name = 'creation_log'
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can only view logs for their own institution unless they're superadmins
+        obj = self.get_object()
+        if not request.user.is_superadmin and obj.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
 
 # UserImportTemplate Views
 @method_decorator(admin_required, name='dispatch')
@@ -403,7 +501,14 @@ class UserImportTemplateListView(ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        return UserImportTemplate.objects.filter(is_active=True)
+        # Admins can only see templates for their own institution unless they're superadmins
+        if self.request.user.is_superadmin:
+            return UserImportTemplate.objects.filter(is_active=True)
+        else:
+            return UserImportTemplate.objects.filter(
+                created_by__institution=self.request.user.institution,
+                is_active=True
+            )
 
 @method_decorator(admin_required, name='dispatch')
 class UserImportTemplateCreateView(CreateView):
@@ -424,6 +529,13 @@ class UserImportTemplateUpdateView(UpdateView):
     template_name = 'user_import_template_form.html'
     success_url = reverse_lazy('user_import_template_list')
     
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can only edit templates for their own institution unless they're superadmins
+        obj = self.get_object()
+        if not request.user.is_superadmin and obj.created_by.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+    
     def form_valid(self, form):
         messages.success(self.request, 'Template updated successfully.')
         return super().form_valid(form)
@@ -431,6 +543,11 @@ class UserImportTemplateUpdateView(UpdateView):
 @admin_required
 def user_import_template_delete(request, pk):
     template = get_object_or_404(UserImportTemplate, pk=pk)
+    
+    # Check if admin has permission to delete this template
+    if not request.user.is_superadmin and template.created_by.institution != request.user.institution:
+        raise PermissionDenied
+    
     template.is_active = False
     template.save()
     messages.success(request, 'Template deleted successfully.')
@@ -445,8 +562,8 @@ class AcademicDepartmentListView(ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        # Admins can only see departments in their institution unless they're superusers
-        if self.request.user.is_superuser:
+        # Superadmins can see all departments, others only see departments in their institution
+        if self.request.user.is_superadmin:
             return AcademicDepartment.objects.select_related('institution')
         else:
             return AcademicDepartment.objects.filter(
@@ -462,14 +579,22 @@ class AcademicDepartmentCreateView(CreateView):
     
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        # Limit institution choices for non-superusers
-        if not self.request.user.is_superuser:
-            kwargs['instance'] = AcademicDepartment(institution=self.request.user.institution)
+        # For non-superadmins, set the institution to their own
+        if not self.request.user.is_superadmin:
+            kwargs['initial'] = {'institution': self.request.user.institution}
         return kwargs
     
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # For non-superadmins, limit institution choices to their own and disable the field
+        if not self.request.user.is_superadmin:
+            form.fields['institution'].queryset = Institution.objects.filter(id=self.request.user.institution.id)
+            form.fields['institution'].disabled = True
+        return form
+    
     def form_valid(self, form):
-        # For non-superusers, automatically set the institution to their own
-        if not self.request.user.is_superuser:
+        # For non-superadmins, force the institution to be their own
+        if not self.request.user.is_superadmin:
             form.instance.institution = self.request.user.institution
         
         messages.success(self.request, 'Department created successfully.')
@@ -483,13 +608,25 @@ class AcademicDepartmentUpdateView(UpdateView):
     success_url = reverse_lazy('academic_department_list')
     
     def dispatch(self, request, *args, **kwargs):
-        # Non-superusers can only edit departments in their institution
+        # Admins can only edit departments in their institution unless they're superadmins
         obj = self.get_object()
-        if not request.user.is_superuser and obj.institution != request.user.institution:
+        if not request.user.is_superadmin and obj.institution != request.user.institution:
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
     
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # For non-superadmins, limit institution choices to their own and disable the field
+        if not self.request.user.is_superadmin:
+            form.fields['institution'].queryset = Institution.objects.filter(id=self.request.user.institution.id)
+            form.fields['institution'].disabled = True
+        return form
+    
     def form_valid(self, form):
+        # For non-superadmins, force the institution to be their own
+        if not self.request.user.is_superadmin:
+            form.instance.institution = self.request.user.institution
+            
         messages.success(self.request, 'Department updated successfully.')
         return super().form_valid(form)
 
@@ -498,7 +635,7 @@ def academic_department_toggle_active(request, pk):
     department = get_object_or_404(AcademicDepartment, pk=pk)
     
     # Check permission
-    if not request.user.is_superuser and department.institution != request.user.institution:
+    if not request.user.is_superadmin and department.institution != request.user.institution:
         raise PermissionDenied
     
     department.is_active = not department.is_active
@@ -519,9 +656,12 @@ class CourseListView(ListView):
     
     def get_queryset(self):
         # Users can only see courses in their institution
-        queryset = Course.objects.filter(
-            department__institution=self.request.user.institution
-        ).select_related('department')
+        if self.request.user.is_superadmin:
+            queryset = Course.objects.select_related('department')
+        else:
+            queryset = Course.objects.filter(
+                department__institution=self.request.user.institution
+            ).select_related('department')
         
         # Add filtering if needed
         department_id = self.request.GET.get('department')
@@ -533,10 +673,13 @@ class CourseListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add departments for filtering
-        context['departments'] = AcademicDepartment.objects.filter(
-            institution=self.request.user.institution,
-            is_active=True
-        )
+        if self.request.user.is_superadmin:
+            context['departments'] = AcademicDepartment.objects.filter(is_active=True)
+        else:
+            context['departments'] = AcademicDepartment.objects.filter(
+                institution=self.request.user.institution,
+                is_active=True
+            )
         return context
 
 @method_decorator(instructor_required, name='dispatch')
@@ -546,22 +689,21 @@ class CourseCreateView(CreateView):
     template_name = 'course_form.html'
     success_url = reverse_lazy('course_list')
     
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        # Limit department choices to user's institution
-        kwargs['instance'] = Course()
-        return kwargs
-    
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter departments to only those in the user's institution
-        form.fields['department'].queryset = AcademicDepartment.objects.filter(
-            institution=self.request.user.institution,
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['department'].queryset = AcademicDepartment.objects.filter(
+                institution=self.request.user.institution,
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
+        # For non-superadmins, ensure the department belongs to their institution
+        if not self.request.user.is_superadmin and form.instance.department.institution != self.request.user.institution:
+            raise PermissionDenied
+            
         messages.success(self.request, 'Course created successfully.')
         return super().form_valid(form)
 
@@ -573,19 +715,20 @@ class CourseUpdateView(UpdateView):
     success_url = reverse_lazy('course_list')
     
     def dispatch(self, request, *args, **kwargs):
-        # Users can only edit courses in their institution
+        # Users can only edit courses in their institution unless they're superadmins
         obj = self.get_object()
-        if obj.department.institution != request.user.institution:
+        if not request.user.is_superadmin and obj.department.institution != request.user.institution:
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter departments to only those in the user's institution
-        form.fields['department'].queryset = AcademicDepartment.objects.filter(
-            institution=self.request.user.institution,
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['department'].queryset = AcademicDepartment.objects.filter(
+                institution=self.request.user.institution,
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
@@ -597,7 +740,7 @@ def course_toggle_active(request, pk):
     course = get_object_or_404(Course, pk=pk)
     
     # Check permission
-    if course.department.institution != request.user.institution:
+    if not request.user.is_superadmin and course.department.institution != request.user.institution:
         raise PermissionDenied
     
     course.is_active = not course.is_active
@@ -618,9 +761,12 @@ class SectionListView(ListView):
     
     def get_queryset(self):
         # Users can only see sections in their institution
-        queryset = Section.objects.filter(
-            course__department__institution=self.request.user.institution
-        ).select_related('course', 'instructor')
+        if self.request.user.is_superadmin:
+            queryset = Section.objects.select_related('course', 'instructor')
+        else:
+            queryset = Section.objects.filter(
+                course__department__institution=self.request.user.institution
+            ).select_related('course', 'instructor')
         
         # Add filtering if needed
         course_id = self.request.GET.get('course')
@@ -632,10 +778,13 @@ class SectionListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add courses for filtering
-        context['courses'] = Course.objects.filter(
-            department__institution=self.request.user.institution,
-            is_active=True
-        )
+        if self.request.user.is_superadmin:
+            context['courses'] = Course.objects.filter(is_active=True)
+        else:
+            context['courses'] = Course.objects.filter(
+                department__institution=self.request.user.institution,
+                is_active=True
+            )
         return context
 
 @method_decorator(instructor_required, name='dispatch')
@@ -645,26 +794,29 @@ class SectionCreateView(CreateView):
     template_name = 'section_form.html'
     success_url = reverse_lazy('section_list')
     
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        return kwargs
-    
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter courses to only those in the user's institution
-        form.fields['course'].queryset = Course.objects.filter(
-            department__institution=self.request.user.institution,
-            is_active=True
-        )
-        # Filter instructors to only those in the user's institution
-        form.fields['instructor'].queryset = User.objects.filter(
-            institution=self.request.user.institution,
-            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['course'].queryset = Course.objects.filter(
+                department__institution=self.request.user.institution,
+                is_active=True
+            )
+            # Filter instructors to only those in the user's institution
+            form.fields['instructor'].queryset = User.objects.filter(
+                institution=self.request.user.institution,
+                role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
+        # For non-superadmins, ensure the course and instructor belong to their institution
+        if not self.request.user.is_superadmin:
+            if (form.instance.course.department.institution != self.request.user.institution or
+                form.instance.instructor.institution != self.request.user.institution):
+                raise PermissionDenied
+                
         messages.success(self.request, 'Section created successfully.')
         return super().form_valid(form)
 
@@ -676,25 +828,26 @@ class SectionUpdateView(UpdateView):
     success_url = reverse_lazy('section_list')
     
     def dispatch(self, request, *args, **kwargs):
-        # Users can only edit sections in their institution
+        # Users can only edit sections in their institution unless they're superadmins
         obj = self.get_object()
-        if obj.course.department.institution != request.user.institution:
+        if not request.user.is_superadmin and obj.course.department.institution != request.user.institution:
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter courses to only those in the user's institution
-        form.fields['course'].queryset = Course.objects.filter(
-            department__institution=self.request.user.institution,
-            is_active=True
-        )
-        # Filter instructors to only those in the user's institution
-        form.fields['instructor'].queryset = User.objects.filter(
-            institution=self.request.user.institution,
-            role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['course'].queryset = Course.objects.filter(
+                department__institution=self.request.user.institution,
+                is_active=True
+            )
+            # Filter instructors to only those in the user's institution
+            form.fields['instructor'].queryset = User.objects.filter(
+                institution=self.request.user.institution,
+                role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN],
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
@@ -706,7 +859,7 @@ def section_toggle_active(request, pk):
     section = get_object_or_404(Section, pk=pk)
     
     # Check permission
-    if section.course.department.institution != request.user.institution:
+    if not request.user.is_superadmin and section.course.department.institution != request.user.institution:
         raise PermissionDenied
     
     section.is_active = not section.is_active
@@ -727,9 +880,12 @@ class EnrollmentListView(ListView):
     
     def get_queryset(self):
         # Users can only see enrollments in their institution
-        queryset = Enrollment.objects.filter(
-            section__course__department__institution=self.request.user.institution
-        ).select_related('student', 'section__course')
+        if self.request.user.is_superadmin:
+            queryset = Enrollment.objects.select_related('student', 'section__course')
+        else:
+            queryset = Enrollment.objects.filter(
+                section__course__department__institution=self.request.user.institution
+            ).select_related('student', 'section__course')
         
         # Add filtering if needed
         section_id = self.request.GET.get('section')
@@ -741,10 +897,13 @@ class EnrollmentListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add sections for filtering
-        context['sections'] = Section.objects.filter(
-            course__department__institution=self.request.user.institution,
-            is_active=True
-        )
+        if self.request.user.is_superadmin:
+            context['sections'] = Section.objects.filter(is_active=True)
+        else:
+            context['sections'] = Section.objects.filter(
+                course__department__institution=self.request.user.institution,
+                is_active=True
+            )
         return context
 
 @method_decorator(instructor_required, name='dispatch')
@@ -754,26 +913,29 @@ class EnrollmentCreateView(CreateView):
     template_name = 'enrollment_form.html'
     success_url = reverse_lazy('enrollment_list')
     
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        return kwargs
-    
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter students to only those in the user's institution
-        form.fields['student'].queryset = User.objects.filter(
-            institution=self.request.user.institution,
-            role=User.Role.STUDENT,
-            is_active=True
-        )
-        # Filter sections to only those in the user's institution
-        form.fields['section'].queryset = Section.objects.filter(
-            course__department__institution=self.request.user.institution,
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['student'].queryset = User.objects.filter(
+                institution=self.request.user.institution,
+                role=User.Role.STUDENT,
+                is_active=True
+            )
+            # Filter sections to only those in the user's institution
+            form.fields['section'].queryset = Section.objects.filter(
+                course__department__institution=self.request.user.institution,
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
+        # For non-superadmins, ensure the student and section belong to their institution
+        if not self.request.user.is_superadmin:
+            if (form.instance.student.institution != self.request.user.institution or
+                form.instance.section.course.department.institution != self.request.user.institution):
+                raise PermissionDenied
+                
         messages.success(self.request, 'Enrollment created successfully.')
         return super().form_valid(form)
 
@@ -785,25 +947,26 @@ class EnrollmentUpdateView(UpdateView):
     success_url = reverse_lazy('enrollment_list')
     
     def dispatch(self, request, *args, **kwargs):
-        # Users can only edit enrollments in their institution
+        # Users can only edit enrollments in their institution unless they're superadmins
         obj = self.get_object()
-        if obj.section.course.department.institution != request.user.institution:
+        if not request.user.is_superadmin and obj.section.course.department.institution != request.user.institution:
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
     
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # Filter students to only those in the user's institution
-        form.fields['student'].queryset = User.objects.filter(
-            institution=self.request.user.institution,
-            role=User.Role.STUDENT,
-            is_active=True
-        )
-        # Filter sections to only those in the user's institution
-        form.fields['section'].queryset = Section.objects.filter(
-            course__department__institution=self.request.user.institution,
-            is_active=True
-        )
+        if not self.request.user.is_superadmin:
+            form.fields['student'].queryset = User.objects.filter(
+                institution=self.request.user.institution,
+                role=User.Role.STUDENT,
+                is_active=True
+            )
+            # Filter sections to only those in the user's institution
+            form.fields['section'].queryset = Section.objects.filter(
+                course__department__institution=self.request.user.institution,
+                is_active=True
+            )
         return form
     
     def form_valid(self, form):
@@ -815,7 +978,7 @@ def enrollment_toggle_active(request, pk):
     enrollment = get_object_or_404(Enrollment, pk=pk)
     
     # Check permission
-    if enrollment.section.course.department.institution != request.user.institution:
+    if not request.user.is_superadmin and enrollment.section.course.department.institution != request.user.institution:
         raise PermissionDenied
     
     enrollment.is_active = not enrollment.is_active
@@ -867,10 +1030,13 @@ def active_exam_sessions(request):
         ).select_related('exam')
     else:
         # For instructors/admins, show all active sessions in their institution
-        sessions = ActiveExamSession.objects.filter(
-            user__institution=request.user.institution,
-            is_active=True
-        ).select_related('user', 'exam')
+        if request.user.is_superadmin:
+            sessions = ActiveExamSession.objects.filter(is_active=True).select_related('user', 'exam')
+        else:
+            sessions = ActiveExamSession.objects.filter(
+                user__institution=request.user.institution,
+                is_active=True
+            ).select_related('user', 'exam')
     
     return render(request, 'active_exam_sessions.html', {'sessions': sessions})
 
@@ -881,8 +1047,9 @@ def terminate_exam_session(request, pk):
     session = get_object_or_404(ActiveExamSession, pk=pk)
     
     # Check permissions
-    if not (request.user.is_admin or 
-            request.user.is_instructor or 
+    if not (request.user.is_superadmin or 
+            (request.user.is_admin and session.user.institution == request.user.institution) or 
+            (request.user.is_instructor and session.user.institution == request.user.institution) or 
             session.user == request.user):
         raise PermissionDenied
     
@@ -895,6 +1062,10 @@ def terminate_exam_session(request, pk):
 # API Views for AJAX functionality
 @login_required
 def get_institution_departments(request, institution_id):
+    # Check if user has permission to access this institution's data
+    if not request.user.is_superadmin and int(institution_id) != request.user.institution.id:
+        raise PermissionDenied
+    
     departments = AcademicDepartment.objects.filter(
         institution_id=institution_id,
         is_active=True
@@ -904,6 +1075,12 @@ def get_institution_departments(request, institution_id):
 
 @login_required
 def get_department_courses(request, department_id):
+    department = get_object_or_404(AcademicDepartment, id=department_id)
+    
+    # Check if user has permission to access this department's data
+    if not request.user.is_superadmin and department.institution != request.user.institution:
+        raise PermissionDenied
+    
     courses = Course.objects.filter(
         department_id=department_id,
         is_active=True
@@ -913,6 +1090,12 @@ def get_department_courses(request, department_id):
 
 @login_required
 def get_course_sections(request, course_id):
+    course = get_object_or_404(Course, id=course_id)
+    
+    # Check if user has permission to access this course's data
+    if not request.user.is_superadmin and course.department.institution != request.user.institution:
+        raise PermissionDenied
+    
     sections = Section.objects.filter(
         course_id=course_id,
         is_active=True

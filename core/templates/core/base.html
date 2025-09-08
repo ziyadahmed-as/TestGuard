@@ -12,17 +12,17 @@
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #b5babfff;
+            background-color: #f8fafc;
         }
         
         .sidebar {
             transition: all 0.3s ease;
-            background-color: #303030ff;
+            background-color: #1f2937;
         }
         
         .nav-item {
             transition: all 0.2s ease;
-            color: #a1adbeff;
+            color: #9ca3af;
         }
         
         .nav-item:hover {
@@ -41,27 +41,53 @@
         
         .card-hover:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 25px -5px rgba(71, 67, 67, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
         
         .btn-primary {
-            background-color: #3ba09bff;
+            background-color: #4F46E5;
             color: white;
             transition: all 0.3s ease;
         }
         
         .btn-primary:hover {
-            background-color: #3f6a9eff;
+            background-color: #4338ca;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(96, 90, 219, 0.25);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
         }
         
         .section-title {
-            color: #9ca4b2ff;
+            color: #9ca3af;
+        }
+        
+        .role-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        
+        .badge-superadmin {
+            background-color: #dc2626;
+            color: white;
+        }
+        
+        .badge-admin {
+            background-color: #2563eb;
+            color: white;
+        }
+        
+        .badge-instructor {
+            background-color: #059669;
+            color: white;
+        }
+        
+        .badge-student {
+            background-color: #7c3aed;
+            color: white;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex">
+<body class="bg-gray-50 min-h-screen flex" x-data="{ mobileMenuOpen: false }">
     <!-- Sidebar -->
     <div class="sidebar w-64 min-h-screen shadow-lg hidden md:block">
         <div class="p-6 border-b border-gray-600">
@@ -83,31 +109,37 @@
                 
                 {% if user.is_authenticated %}
                     <!-- Core Application Links -->
-                    {% if user.is_admin %}
-                    <a href="{% url 'user_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+                    {% if user.is_superadmin or user.is_admin %}
+                    <a href="{% url 'core:user_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-users mr-3"></i>
                         <span>Users</span>
                     </a>
-                    <a href="{% url 'institution_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'institution' in request.resolver_match.url_name %}active{% endif %}">
+                    {% endif %}
+                    
+                    {% if user.is_superadmin %}
+                    <a href="{% url 'core:institution_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'institution' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-building mr-3"></i>
                         <span>Institutions</span>
                     </a>
-                    <a href="{% url 'academic_department_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'department' in request.resolver_match.url_name %}active{% endif %}">
+                    {% endif %}
+                    
+                    {% if user.is_superadmin or user.is_admin %}
+                    <a href="{% url 'core:academic_department_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'department' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-graduation-cap mr-3"></i>
                         <span>Departments</span>
                     </a>
                     {% endif %}
                     
                     {% if user.is_educator %}
-                    <a href="{% url 'course_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'course' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'core:course_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'course' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-book mr-3"></i>
                         <span>Courses</span>
                     </a>
-                    <a href="{% url 'section_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'section' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'core:section_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'section' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-chalkboard mr-3"></i>
                         <span>Sections</span>
                     </a>
-                    <a href="{% url 'enrollment_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'enrollment' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'core:enrollment_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'enrollment' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-user-graduate mr-3"></i>
                         <span>Enrollments</span>
                     </a>
@@ -115,10 +147,14 @@
                     
                     <!-- Exam Application Links -->
                     <p class="section-title text-xs font-semibold uppercase tracking-wider mb-3 pl-3 mt-6">Exam Management</p>
+                    {% if user.is_educator or user.is_student %}
                     <a href="{% url 'exams:exam_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'exam' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-file-alt mr-3"></i>
                         <span>Exams</span>
                     </a>
+                    {% endif %}
+                    
+                    {% if user.is_educator %}
                     <a href="{% url 'exams:question_bank_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'question' in request.resolver_match.url_name %}active{% endif %}">
                         <i class="fas fa-database mr-3"></i>
                         <span>Question Banks</span>
@@ -127,19 +163,40 @@
                         <i class="fas fa-desktop mr-3"></i>
                         <span>Monitoring</span>
                     </a>
+                    {% endif %}
+                    
+                    <!-- User Creation Logs (Admin only) -->
+                    {% if user.is_admin %}
+                    <a href="{% url 'core:admin_user_creation_log_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'user_creation_log' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="fas fa-history mr-3"></i>
+                        <span>User Creation Logs</span>
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Import Templates (Admin only) -->
+                    {% if user.is_admin %}
+                    <a href="{% url 'core:user_import_template_list' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'user_import_template' in request.resolver_match.url_name %}active{% endif %}">
+                        <i class="fas fa-file-import mr-3"></i>
+                        <span>Import Templates</span>
+                    </a>
+                    {% endif %}
                 {% endif %}
             </div>
             
             <div>
-                <p class="section-title text-xs font-semibult uppercase tracking-wider mb-3 pl-3">Account</p>
+                <p class="section-title text-xs font-semibold uppercase tracking-wider mb-3 pl-3">Account</p>
                 {% if user.is_authenticated %}
-                <a href="{% url 'profile' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'profile' in request.resolver_match.url_name %}active{% endif %}">
+                <a href="{% url 'core:profile' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'profile' in request.resolver_match.url_name %}active{% endif %}">
                     <i class="fas fa-user-circle mr-3"></i>
                     <span>Profile</span>
                 </a>
-                <a href="{% url 'device_sessions' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'device' in request.resolver_match.url_name %}active{% endif %}">
+                <a href="{% url 'core:device_sessions' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'device' in request.resolver_match.url_name %}active{% endif %}">
                     <i class="fas fa-laptop mr-3"></i>
                     <span>Devices</span>
+                </a>
+                <a href="{% url 'core:active_exam_sessions' %}" class="nav-item flex items-center p-3 rounded-lg mb-2 {% if 'exam_session' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-clock mr-3"></i>
+                    <span>Exam Sessions</span>
                 </a>
                 {% endif %}
             </div>
@@ -157,7 +214,7 @@
                     </button>
                     <div class="ml-4">
                         <h1 class="text-xl font-semibold text-gray-800">{% block page_title %}Dashboard{% endblock %}</h1>
-                        <p class="text-sm text-gray-500">{% block page_description %}Welcome back, {{ user.get_full_name }}{% endblock %}</p>
+                        <p class="text-sm text-gray-500">{% block page_description %}Welcome back, {{ user.get_full_name|default:user.username }}{% endblock %}</p>
                     </div>
                 </div>
                 
@@ -165,18 +222,29 @@
                     {% if user.is_authenticated %}
                     <div class="hidden md:flex items-center mr-4">
                         <div class="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold">
-                            {{ user.first_name|first }}{{ user.last_name|first }}
+                            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
                         </div>
                         <div class="ml-3">
-                            <p class="text-sm font-medium text-gray-800">{{ user.get_full_name }}</p>
-                            <p class="text-xs text-gray-500 capitalize">{{ user.get_role_display }}</p>
+                            <p class="text-sm font-medium text-gray-800">{{ user.get_full_name|default:user.username }}</p>
+                            <p class="text-xs text-gray-500 capitalize">
+                                <span class="role-badge 
+                                    {% if user.is_superadmin %}badge-superadmin
+                                    {% elif user.is_admin %}badge-admin
+                                    {% elif user.is_instructor %}badge-instructor
+                                    {% else %}badge-student{% endif %}">
+                                    {{ user.get_role_display }}
+                                </span>
+                                {% if user.institution %}
+                                • {{ user.institution.name }}
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
-                    <a href="{% url 'logout' %}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                    <a href="{% url 'core:logout' %}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
                         <i class="fas fa-sign-out-alt mr-1"></i> Logout
                     </a>
                     {% else %}
-                    <a href="{% url 'login' %}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                    <a href="{% url 'core:login' %}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
                         <i class="fas fa-sign-in-alt mr-1"></i> Login
                     </a>
                     {% endif %}
@@ -185,53 +253,81 @@
         </header>
 
         <!-- Mobile menu -->
-        <div class="md:hidden bg-gray-800 text-white" x-data="{ mobileMenuOpen: false }" x-show="mobileMenuOpen" x-transition>
+        <div class="md:hidden bg-gray-800 text-white" x-show="mobileMenuOpen" x-transition>
             <div class="px-4 py-2">
                 <a href="{% url 'core:dashboard' %}" class="block py-2 px-4 text-white rounded-lg {% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                     <i class="fas fa-home mr-3"></i> Dashboard
                 </a>
                 
                 {% if user.is_authenticated %}
-                    {% if user.is_admin %}
-                    <a href="{% url 'user_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'user' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    {% if user.is_superadmin or user.is_admin %}
+                    <a href="{% url 'core:user_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'user' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-users mr-3"></i> Users
                     </a>
-                    <a href="{% url 'institution_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'institution' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    {% endif %}
+                    
+                    {% if user.is_superadmin %}
+                    <a href="{% url 'core:institution_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'institution' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-building mr-3"></i> Institutions
                     </a>
-                    <a href="{% url 'academic_department_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'department' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    {% endif %}
+                    
+                    {% if user.is_superadmin or user.is_admin %}
+                    <a href="{% url 'core:academic_department_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'department' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-graduation-cap mr-3"></i> Departments
                     </a>
                     {% endif %}
                     
                     {% if user.is_educator %}
-                    <a href="{% url 'course_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'course' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    <a href="{% url 'core:course_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'course' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-book mr-3"></i> Courses
                     </a>
-                    <a href="{% url 'section_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'section' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    <a href="{% url 'core:section_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'section' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-chalkboard mr-3"></i> Sections
                     </a>
-                    <a href="{% url 'enrollment_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'enrollment' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    <a href="{% url 'core:enrollment_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'enrollment' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-user-graduate mr-3"></i> Enrollments
                     </a>
                     {% endif %}
                     
                     <!-- Exam Application Links for Mobile -->
+                    {% if user.is_educator or user.is_student %}
                     <a href="{% url 'exams:exam_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'exam' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-file-alt mr-3"></i> Exams
                     </a>
+                    {% endif %}
+                    
+                    {% if user.is_educator %}
                     <a href="{% url 'exams:question_bank_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'question' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-database mr-3"></i> Question Banks
                     </a>
                     <a href="{% url 'exams:monitoring_events' %}" class="block py-2 px-4 text-white rounded-lg {% if 'monitoring' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-desktop mr-3"></i> Monitoring
                     </a>
+                    {% endif %}
                     
-                    <a href="{% url 'profile' %}" class="block py-2 px-4 text-white rounded-lg {% if 'profile' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    <!-- User Creation Logs (Admin only) -->
+                    {% if user.is_admin %}
+                    <a href="{% url 'core:admin_user_creation_log_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'user_creation_log' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                        <i class="fas fa-history mr-3"></i> User Creation Logs
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Import Templates (Admin only) -->
+                    {% if user.is_admin %}
+                    <a href="{% url 'core:user_import_template_list' %}" class="block py-2 px-4 text-white rounded-lg {% if 'user_import_template' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                        <i class="fas fa-file-import mr-3"></i> Import Templates
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'core:profile' %}" class="block py-2 px-4 text-white rounded-lg {% if 'profile' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-user-circle mr-3"></i> Profile
                     </a>
-                    <a href="{% url 'device_sessions' %}" class="block py-2 px-4 text-white rounded-lg {% if 'device' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                    <a href="{% url 'core:device_sessions' %}" class="block py-2 px-4 text-white rounded-lg {% if 'device' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
                         <i class="fas fa-laptop mr-3"></i> Devices
+                    </a>
+                    <a href="{% url 'core:active_exam_sessions' %}" class="block py-2 px-4 text-white rounded-lg {% if 'exam_session' in request.resolver_match.url_name %}bg-indigo-600 text-white{% else %}hover:bg-gray-700{% endif %}">
+                        <i class="fas fa-clock mr-3"></i> Exam Sessions
                     </a>
                 {% endif %}
             </div>
@@ -288,7 +384,7 @@
     <script>
         // Auto-dismiss messages after 5 seconds
         setTimeout(() => {
-            const messages = document.querySelectorAll('[role="alert"]');
+            const messages = document.querySelectorAll('.px-4.py-3.rounded-lg');
             messages.forEach(message => {
                 message.style.display = 'none';
             });
