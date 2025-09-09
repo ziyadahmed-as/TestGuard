@@ -1,68 +1,102 @@
-<!-- exams/templates/exams/question_bank_list.html -->
-{% extends 'core/base.html' %}
+{% extends 'exams/base.html' %}
 
-{% block title %}Question Banks - Exam Management System{% endblock %}
+{% block title %}Question Banks - TestGuard Platform{% endblock %}
 
-{% block content %}
-<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-    <div class="flex-1 min-w-0">
-        <h1 class="text-3xl font-bold text-gray-900">Question Banks</h1>
-    </div>
-    {% if request.user.role == 'INSTRUCTOR' or request.user.role == 'ADMIN' %}
-    <div class="mt-4 flex md:mt-0 md:ml-4">
-        <a href="{% url 'exams:question_bank_create' %}" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Create Question Bank
+{% block page_title %}Question Banks{% endblock %}
+{% block page_description %}Manage your question banks for exams{% endblock %}
+
+{% block exam_content %}
+<div class="mb-6 flex justify-between items-center">
+    <div class="flex space-x-4">
+        <a href="{% url 'exams:question_bank_list' %}" 
+           class="px-4 py-2 rounded-lg bg-indigo-600 text-white">
+            All Question Banks
         </a>
     </div>
-    {% endif %}
+    
+    <a href="{% url 'exams:question_bank_create' %}" class="btn-primary flex items-center">
+        <i class="fas fa-plus mr-2"></i> Create Question Bank
+    </a>
 </div>
 
-<div class="bg-white shadow overflow-hidden sm:rounded-md">
-    <ul class="divide-y divide-gray-200">
-        {% for question_bank in question_banks %}
-        <li>
-            <a href="{% url 'exams:question_bank_detail' question_bank.pk %}" class="block hover:bg-gray-50">
-                <div class="px-4 py-4 sm:px-6">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-blue-600 truncate">{{ question_bank.name }}</p>
-                        <div class="ml-2 flex-shrink-0 flex">
-                            <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if question_bank.is_global %}bg-purple-100 text-purple-800
-                                {% elif question_bank.is_public %}bg-green-100 text-green-800
-                                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                {% if question_bank.is_global %}Global
-                                {% elif question_bank.is_public %}Public
-                                {% else %}Private{% endif %}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="mt-2 sm:flex sm:justify-between">
-                        <div class="sm:flex">
-                            <p class="flex items-center text-sm text-gray-500">
-                                {{ question_bank.description|truncatewords:20 }}
-                            </p>
-                        </div>
-                        <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                            <p>
-                                Institution: {{ question_bank.institution.name }} • 
-                                Questions: {{ question_bank.active_questions_count }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <p class="text-sm text-gray-500">
-                            Created by: {{ question_bank.created_by.get_full_name|default:question_bank.created_by.username }} • 
-                            Created at: {{ question_bank.created_at|date:"M d, Y" }}
-                        </p>
-                    </div>
-                </div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for question_bank in question_banks %}
+    <div class="bg-white rounded-xl shadow-md exam-card p-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">{{ question_bank.name }}</h3>
+                <p class="text-sm text-gray-500">{{ question_bank.course.code }} - {{ question_bank.course.name }}</p>
+            </div>
+            <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                {{ question_bank.questions.count }} questions
+            </span>
+        </div>
+        
+        <div class="mb-4">
+            <div class="flex items-center text-sm text-gray-500 mb-1">
+                <i class="fas fa-user mr-2"></i>
+                Created by {{ question_bank.created_by.get_full_name }}
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <i class="fas fa-calendar-alt mr-2"></i>
+                {{ question_bank.created_at|date:"M d, Y" }}
+            </div>
+        </div>
+        
+        {% if question_bank.description %}
+        <div class="mb-4">
+            <p class="text-sm text-gray-700">{{ question_bank.description|truncatewords:20 }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="flex justify-between items-center">
+            <a href="{% url 'exams:question_bank_detail' question_bank.pk %}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                View Details
             </a>
-        </li>
-        {% empty %}
-        <li class="px-4 py-5 sm:px-6">
-            <p class="text-sm text-gray-500">No question banks found.</p>
-        </li>
-        {% endfor %}
-    </ul>
+            
+            <div class="flex space-x-2">
+                <a href="{% url 'exams:question_bank_update' question_bank.pk %}" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <a href="{% url 'exams:bulk_question_upload' question_bank.pk %}" class="text-green-500 hover:text-green-700">
+                    <i class="fas fa-file-import"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12">
+        <i class="fas fa-database text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500">No question banks found.</p>
+        <a href="{% url 'exams:question_bank_create' %}" class="btn-primary mt-4 inline-block">Create your first question bank</a>
+    </div>
+    {% endfor %}
 </div>
+
+{% if is_paginated %}
+<div class="mt-8 flex justify-center">
+    <div class="flex space-x-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" 
+           class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            Previous
+        </a>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        <a href="?page={{ num }}" 
+           class="px-4 py-2 rounded-lg {% if page_obj.number == num %}bg-indigo-600 text-white{% else %}bg-white border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %}">
+            {{ num }}
+        </a>
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" 
+           class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            Next
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

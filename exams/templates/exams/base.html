@@ -1,0 +1,70 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/exams.css' %}">
+<style>
+    .exam-card {
+        transition: all 0.3s ease;
+    }
+    
+    .exam-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .question-number {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #4F46E5;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .timer-warning {
+        background-color: #FEF3C7;
+        border-left: 4px solid #F59E0B;
+    }
+    
+    .timer-critical {
+        background-color: #FEE2E2;
+        border-left: 4px solid #EF4444;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .proctoring-alert {
+        border-left: 4px solid #EF4444;
+        background-color: #FEF2F2;
+    }
+    
+    .proctoring-warning {
+        border-left: 4px solid #F59E0B;
+        background-color: #FFFBEB;
+    }
+    
+    .proctoring-normal {
+        border-left: 4px solid #10B981;
+        background-color: #ECFDF5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    {% block exam_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/exams.js' %}"></script>
+{% endblock %}

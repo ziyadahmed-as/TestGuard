@@ -1,0 +1,202 @@
+{% extends 'exams/base.html' %}
+
+{% block title %}Exam Attempt - TestGuard Platform{% endblock %}
+
+{% block page_title %}Exam Attempt Details{% endblock %}
+{% block page_description %}Review of {{ attempt.student.get_full_name }}'s attempt on {{ attempt.exam.title }}{% endblock %}
+
+{% block exam_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Attempt Summary</h3>
+                    <p class="text-sm text-gray-500">Details of the exam attempt</p>
+                </div>
+                <span class="px-3 py-1 text-sm rounded-full 
+                    {% if attempt.status == 'completed' %}bg-green-100 text-green-800
+                    {% elif attempt.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ attempt.status|title }}
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <p class="text-sm text-gray-500">Student</p>
+                    <p class="font-medium">{{ attempt.student.get_full_name }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Exam</p>
+                    <p class="font-medium">{{ attempt.exam.title }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Start Time</p>
+                    <p class="font-medium">{{ attempt.start_time|date:"M d, Y H:i" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">End Time</p>
+                    <p class="font-medium">
+                        {% if attempt.end_time %}{{ attempt.end_time|date:"M d, Y H:i" }}{% else %}—{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Time Spent</p>
+                    <p class="font-medium">
+                        {% if attempt.end_time %}
+                        {{ attempt.start_time|timesince:attempt.end_time }}
+                        {% else %}—{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Score</p>
+                    <p class="font-medium">
+                        {% if attempt.score is not None %}
+                        {{ attempt.score }}/{{ attempt.max_score }} ({{ attempt.percentage|floatformat:1 }}%)
+                        {% else %}—{% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            {% if user.is_educator and attempt.status == 'completed' %}
+            <div class="flex space-x-4">
+                <a href="{% url 'exams:exam_attempt_review' attempt.pk %}" class="btn-primary">
+                    <i class="fas fa-check-circle mr-2"></i> Review Attempt
+                </a>
+                <a href="{% url 'exams:monitoring_detail' attempt.pk %}" class="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50">
+                    <i class="fas fa-desktop mr-2"></i> View Monitoring
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Question Responses</h3>
+            
+            {% if responses %}
+            <div class="space-y-6">
+                {% for response in responses %}
+                <div class="border border-gray-200 rounded-lg p-4 {% if response.is_correct %}bg-green-50 border-green-200{% elif response.is_correct == False %}bg-red-50 border-red-200{% endif %}">
+                    <div class="flex items-start mb-3">
+                        <div class="question-number mr-4">{{ forloop.counter }}</div>
+                        <div class="flex-1">
+                            <h4 class="text-md font-medium text-gray-800">{{ response.question.question_text }}</h4>
+                            <p class="text-sm text-gray-500 mt-1">{{ response.question.points }} point{{ response.question.points|pluralize }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Student's Answer</p>
+                            <p class="font-medium">
+                                {% if response.selected_answer %}{{ response.selected_answer }}{% else %}—{% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Correct Answer</p>
+                            <p class="font-medium">{{ response.question.correct_answer }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if response.question.explanation %}
+                    <div class="bg-blue-50 p-3 rounded-lg mt-3">
+                        <p class="text-sm text-blue-700">
+                            <span class="font-medium">Explanation:</span> {{ response.question.explanation }}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-inbox text-3xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">No responses recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div>
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Performance Summary</h3>
+            
+            <div class="space-y-4">
+                {% if attempt.score is not None %}
+                <div class="text-center">
+                    <div class="inline-block relative">
+                        <svg class="w-32 h-32" viewBox="0 0 36 36">
+                            <path d="M18 2.0845
+                                a 15.9155 15.9155 0 0 1 0 31.831
+                                a 15.9155 15.9155 0 0 1 0 -31.831"
+                                fill="none"
+                                stroke="#eee"
+                                stroke-width="3"
+                            />
+                            <path d="M18 2.0845
+                                a 15.9155 15.9155 0 0 1 0 31.831
+                                a 15.9155 15.9155 0 0 1 0 -31.831"
+                                fill="none"
+                                stroke="#4F46E5"
+                                stroke-width="3"
+                                stroke-dasharray="{{ attempt.percentage }}, 100"
+                            />
+                        </svg>
+                        <span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold text-gray-800">
+                            {{ attempt.percentage|floatformat:0 }}%
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">Overall Score</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-green-50 p-3 rounded-lg text-center">
+                        <p class="text-lg font-bold text-green-600">{{ correct_count }}</p>
+                        <p class="text-xs text-green-700">Correct Answers</p>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-lg text-center">
+                        <p class="text-lg font-bold text-red-600">{{ incorrect_count }}</p>
+                        <p class="text-xs text-red-700">Incorrect Answers</p>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 p-3 rounded-lg text-center">
+                    <p class="text-lg font-bold text-blue-600">{{ attempt.score }}/{{ attempt.max_score }}</p>
+                    <p class="text-xs text-blue-700">Points Earned</p>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-clock text-3xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">Exam not yet completed.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+            <div class="space-y-3">
+                <a href="{% url 'exams:exam_detail' attempt.exam.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-file-alt mr-3 text-indigo-500"></i>
+                    <span>View Exam</span>
+                </a>
+                {% if user.is_educator %}
+                <a href="{% url 'exams:exam_attempt_review' attempt.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-check-circle mr-3 text-yellow-500"></i>
+                    <span>Review Attempt</span>
+                </a>
+                <a href="{% url 'exams:monitoring_detail' attempt.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-desktop mr-3 text-purple-500"></i>
+                    <span>View Monitoring</span>
+                </a>
+                {% endif %}
+                <a href="{% url 'exams:exam_attempt_list' %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-list mr-3 text-gray-500"></i>
+                    <span>All Attempts</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

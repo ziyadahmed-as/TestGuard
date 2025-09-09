@@ -1,200 +1,206 @@
-<!-- exams/templates/exams/exam_detail.html -->
-{% extends 'core/base.html' %}
+{% extends 'exams/base.html' %}
 
 {% block title %}{{ exam.title }} - TestGuard Platform{% endblock %}
 
-{% block content %}
-<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-    <div class="flex-1 min-w-0">
-        <h1 class="text-3xl font-bold text-gray-900">{{ exam.title }}</h1>
-        <p class="mt-1 text-sm text-gray-500">
-            Status: 
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                {% if exam.status == 'LIVE' %}bg-green-100 text-green-800
-                {% elif exam.status == 'SCHEDULED' %}bg-yellow-100 text-yellow-800
-                {% elif exam.status == 'DRAFT' %}bg-gray-100 text-gray-800
-                {% else %}bg-blue-100 text-blue-800{% endif %}">
-                {{ exam.get_status_display }}
-            </span>
-        </p>
-    </div>
-    <div class="mt-4 flex md:mt-0 md:ml-4">
-        {% if is_instructor %}
-        <a href="{% url 'exams:exam_question_manage' exam.pk %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Manage Questions
-        </a>
-        <a href="{% url 'exams:exam_update' exam.pk %}" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Edit Exam
-        </a>
-        {% elif request.user.role == 'STUDENT' and exam.is_active %}
-        <a href="{% url 'exams:exam_start' exam.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            Start Exam
-        </a>
-        {% endif %}
-    </div>
-</div>
+{% block page_title %}{{ exam.title }}{% endblock %}
+{% block page_description %}{{ exam.course.code }} - {{ exam.course.name }}{% endblock %}
 
+{% block exam_content %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
-        <!-- Exam Details -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Exam Details</h3>
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Exam Details</h3>
+                    <p class="text-sm text-gray-500">Configuration and settings</p>
+                </div>
+                <span class="px-3 py-1 text-sm rounded-full 
+                    {% if exam.is_published and exam.start_time <= now and exam.end_time >= now %}bg-green-100 text-green-800
+                    {% elif exam.is_published and exam.start_time > now %}bg-blue-100 text-blue-800
+                    {% elif exam.is_published and exam.end_time < now %}bg-gray-100 text-gray-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {% if exam.is_published and exam.start_time <= now and exam.end_time >= now %}Active
+                    {% elif exam.is_published and exam.start_time > now %}Upcoming
+                    {% elif exam.is_published and exam.end_time < now %}Completed
+                    {% else %}Draft{% endif %}
+                </span>
             </div>
-            <div class="px-4 py-5 sm:p-6">
-                <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Description</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.description }}</dd>
-                    </div>
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Duration</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.duration }} minutes</dd>
-                    </div>
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Max Attempts</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.max_attempts }}</dd>
-                    </div>
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Pass Percentage</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.pass_percentage }}%</dd>
-                    </div>
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">Start Date</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.start_date }}</dd>
-                    </div>
-                    <div class="sm:col-span-1">
-                        <dt class="text-sm font-medium text-gray-500">End Date</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.end_date }}</dd>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <dt class="text-sm font-medium text-gray-500">Instructions</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ exam.instructions }}</dd>
-                    </div>
-                </dl>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <p class="text-sm text-gray-500">Start Time</p>
+                    <p class="font-medium">{{ exam.start_time|date:"M d, Y H:i" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">End Time</p>
+                    <p class="font-medium">{{ exam.end_time|date:"M d, Y H:i" }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Duration</p>
+                    <p class="font-medium">{{ exam.duration }} minutes</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Pass Percentage</p>
+                    <p class="font-medium">{{ exam.pass_percentage }}%</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Max Attempts</p>
+                    <p class="font-medium">{{ exam.max_attempts }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Questions</p>
+                    <p class="font-medium">{{ exam.questions.count }}</p>
+                </div>
             </div>
+            
+            {% if exam.description %}
+            <div class="mb-6">
+                <p class="text-sm text-gray-500">Description</p>
+                <p class="mt-1">{{ exam.description }}</p>
+            </div>
+            {% endif %}
+            
+            {% if exam.instructions %}
+            <div class="mb-6">
+                <p class="text-sm text-gray-500">Instructions</p>
+                <p class="mt-1">{{ exam.instructions }}</p>
+            </div>
+            {% endif %}
+            
+            {% if user.is_educator %}
+            <div class="flex space-x-4">
+                <a href="{% url 'exams:exam_update' exam.pk %}" class="btn-primary">
+                    <i class="fas fa-edit mr-2"></i> Edit Exam
+                </a>
+                {% if exam.is_published %}
+                <a href="{% url 'exams:exam_toggle_publish' exam.pk %}" class="px-4 py-2 border border-yellow-300 text-yellow-700 rounded-lg hover:bg-yellow-50">
+                    <i class="fas fa-eye-slash mr-2"></i> Unpublish
+                </a>
+                {% else %}
+                <a href="{% url 'exams:exam_toggle_publish' exam.pk %}" class="px-4 py-2 border border-green-300 text-green-700 rounded-lg hover:bg-green-50">
+                    <i class="fas fa-eye mr-2"></i> Publish
+                </a>
+                {% endif %}
+                <a href="{% url 'exams:exam_report' exam.pk %}" class="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50">
+                    <i class="fas fa-chart-bar mr-2"></i> View Report
+                </a>
+            </div>
+            {% elif user.is_student and exam.is_published and exam.start_time <= now and exam.end_time >= now %}
+            <a href="{% url 'exams:start_exam' exam.pk %}" class="btn-primary">
+                <i class="fas fa-play mr-2"></i> Start Exam
+            </a>
+            {% endif %}
         </div>
-
-        <!-- Exam Questions -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Exam Questions</h3>
+        
+        {% if user.is_educator %}
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Exam Statistics</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-blue-600">{{ attempt_count }}</p>
+                    <p class="text-sm text-blue-700">Total Attempts</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-green-600">{{ completed_count }}</p>
+                    <p class="text-sm text-green-700">Completed</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                    <p class="text-2xl font-bold text-yellow-600">{{ in_progress_count }}</p>
+                    <p class="text-sm text-yellow-700">In Progress</p>
+                </div>
             </div>
-            <div class="px-4 py-5 sm:p-6">
-                <ul class="divide-y divide-gray-200">
-                    {% for exam_question in exam_questions %}
-                    <li class="py-4">
-                        <div class="flex space-x-3">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900">
-                                    Q{{ forloop.counter }}: {{ exam_question.question.question_text|truncatewords:20 }}
-                                </p>
-                                <p class="text-sm text-gray-500">
-                                    Type: {{ exam_question.question.get_type_display }} • 
-                                    Points: {{ exam_question.points }} • 
-                                    Estimated Time: {{ exam_question.question.estimated_time }} seconds
-                                </p>
-                                {% if exam_question.question.learning_objective %}
-                                <p class="text-sm text-gray-500 mt-1">
-                                    Learning Objective: {{ exam_question.question.learning_objective }}
-                                </p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </li>
-                    {% empty %}
-                    <li class="py-4">
-                        <p class="text-sm text-gray-500">No questions added to this exam yet.</p>
-                    </li>
-                    {% endfor %}
-                </ul>
+            
+            {% if avg_score %}
+            <div class="mb-6">
+                <p class="text-sm text-gray-500 mb-1">Average Score</p>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div class="bg-indigo-600 h-4 rounded-full" style="width: {{ avg_score }}%"></div>
+                </div>
+                <p class="text-sm text-gray-700 mt-1">{{ avg_score|floatformat:2 }}%</p>
             </div>
-        </div>
-    </div>
-
-    <div class="lg:col-span-1">
-        <!-- Stats Card (for instructors/admins) -->
-        {% if is_instructor and stats %}
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Exam Statistics</h3>
-            </div>
-            <div class="px-4 py-5 sm:p-6">
-                <dl class="space-y-6">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Total Attempts</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ stats.total_attempts }}</dd>
+            {% endif %}
+            
+            <h4 class="text-md font-semibold text-gray-800 mb-4">Question Statistics</h4>
+            <div class="space-y-4">
+                {% for stat in question_stats %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="font-medium">{{ stat.question.question_text|truncatewords:10 }}</p>
+                        <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                            {{ stat.question.points }} point{{ stat.question.points|pluralize }}
+                        </span>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Completed Attempts</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ stats.completed_attempts }}</dd>
+                    <div class="flex items-center text-sm text-gray-500">
+                        <span class="mr-4">{{ stat.correct_responses }}/{{ stat.total_responses }} correct</span>
+                        <span>{{ stat.accuracy|floatformat:1 }}% accuracy</span>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Average Score</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                            {% if stats.average_score %}{{ stats.average_score|floatformat:2 }}%{% else %}N/A{% endif %}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">In Progress</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ stats.in_progress }}</dd>
-                    </div>
-                </dl>
+                </div>
+                {% endfor %}
             </div>
         </div>
         {% endif %}
-
-        <!-- Security Settings -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Security Settings</h3>
-            </div>
-            <div class="px-4 py-5 sm:p-6">
-                <dl class="space-y-4">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            {% if exam.exam_password %}
-                            <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
-                            </svg>
-                            {% else %}
-                            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
-                            </svg>
-                            {% endif %}
-                        </div>
-                        <div class="ml-3">
-                            <dt class="text-sm font-medium text-gray-500">Password Protected</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
-                                {% if exam.exam_password %}Yes{% else %}No{% endif %}
-                            </dd>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            {% if exam.shuffle_questions %}
-                            <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
-                            {% else %}
-                            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                            </svg>
-                            {% endif %}
-                        </div>
-                        <div class="ml-3">
-                            <dt class="text-sm font-medium text-gray-500">Shuffle Questions</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
-                                {% if exam.shuffle_questions %}Yes{% else %}No{% endif %}
-                            </dd>
-                        </div>
-                    </div>
-                    
-                    <!-- Add more security settings as needed -->
-                </dl>
+    </div>
+    
+    <div>
+        {% if user.is_educator %}
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+            <div class="space-y-3">
+                <a href="{% url 'exams:exam_report' exam.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-chart-bar mr-3 text-blue-500"></i>
+                    <span>View Reports</span>
+                </a>
+                <a href="{% url 'exams:export_exam_results' exam.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-download mr-3 text-green-500"></i>
+                    <span>Export Results</span>
+                </a>
+                <a href="{% url 'exams:monitoring_exam' exam.pk %}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    <i class="fas fa-desktop mr-3 text-purple-500"></i>
+                    <span>Live Monitoring</span>
+                </a>
             </div>
         </div>
+        {% endif %}
+        
+        {% if user.is_student %}
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Your Attempts</h3>
+            {% if exam.attempts.exists %}
+            <div class="space-y-4">
+                {% for attempt in exam.attempts.all %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="font-medium">Attempt #{{ forloop.counter }}</p>
+                        <span class="px-2 py-1 text-xs rounded-full 
+                            {% if attempt.status == 'completed' %}bg-green-100 text-green-800
+                            {% elif attempt.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ attempt.status|title }}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <p>Started: {{ attempt.start_time|date:"M d, Y H:i" }}</p>
+                        {% if attempt.end_time %}
+                        <p>Completed: {{ attempt.end_time|date:"M d, Y H:i" }}</p>
+                        {% endif %}
+                        {% if attempt.score is not None %}
+                        <p>Score: {{ attempt.score }}/{{ attempt.max_score }} ({{ attempt.percentage|floatformat:1 }}%)</p>
+                        {% endif %}
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'exams:exam_attempt_detail' attempt.pk %}" class="text-sm text-indigo-600 hover:text-indigo-800">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">No attempts yet.</p>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

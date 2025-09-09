@@ -983,7 +983,6 @@ def enrollment_toggle_active(request, pk):
     
     enrollment.is_active = not enrollment.is_active
     enrollment.save()
-    
     action = "activated" if enrollment.is_active else "deactivated"
     messages.success(request, f'Enrollment {action} successfully.')
     

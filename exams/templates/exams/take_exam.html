@@ -1,0 +1,253 @@
+{% extends 'exams/base.html' %}
+
+{% block title %}Taking Exam: {{ exam.title }} - TestGuard Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    #examTimer {
+        font-family: monospace;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block exam_content %}
+<div class="bg-white rounded-xl shadow-md p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-800">{{ exam.title }}</h2>
+            <p class="text-sm text-gray-500">Question {{ question_index|add:1 }} of {{ total_questions }}</p>
+        </div>
+        <div id="examTimer" class="px-4 py-2 rounded-lg 
+            {% if time_remaining < 300 %}timer-critical
+            {% elif time_remaining < 900 %}timer-warning
+            {% else %}bg-gray-100{% endif %}">
+            {{ time_remaining|floatformat:0 }} seconds
+        </div>
+    </div>
+    
+    <div class="proctoring-alert mb-6 p-4 rounded-lg hidden" id="proctoringAlert">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle mr-3 text-red-500"></i>
+            <p id="proctoringMessage">Proctoring alert: Please focus on your exam.</p>
+        </div>
+    </div>
+    
+    <form method="post" id="examForm">
+        {% csrf_token %}
+        
+        <div class="mb-6 p-6 border border-gray-200 rounded-lg">
+            <div class="flex items-start mb-4">
+                <div class="question-number mr-4">{{ question_index|add:1 }}</div>
+                <div class="flex-1">
+                    <h3 class="text-lg font-medium text-gray-800">{{ question.question_text }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">{{ question.points }} point{{ question.points|pluralize }}</p>
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                {% if question.question_type == 'multiple_choice' %}
+                    {% if question.option_a %}
+                    <div class="flex items-center">
+                        <input type="radio" id="option_a" name="answer" value="A" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'A' %}checked{% endif %}>
+                        <label for="option_a" class="ml-3 block text-sm font-medium text-gray-700">
+                            A. {{ question.option_a }}
+                        </label>
+                    </div>
+                    {% endif %}
+                    
+                    {% if question.option_b %}
+                    <div class="flex items-center">
+                        <input type="radio" id="option_b" name="answer" value="B" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'B' %}checked{% endif %}>
+                        <label for="option_b" class="ml-3 block text-sm font-medium text-gray-700">
+                            B. {{ question.option_b }}
+                        </label>
+                    </div>
+                    {% endif %}
+                    
+                    {% if question.option_c %}
+                    <div class="flex items-center">
+                        <input type="radio" id="option_c" name="answer" value="C" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'C' %}checked{% endif %}>
+                        <label for="option_c" class="ml-3 block text-sm font-medium text-gray-700">
+                            C. {{ question.option_c }}
+                        </label>
+                    </div>
+                    {% endif %}
+                    
+                    {% if question.option_d %}
+                    <div class="flex items-center">
+                        <input type="radio" id="option_d" name="answer" value="D" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'D' %}checked{% endif %}>
+                        <label for="option_d" class="ml-3 block text-sm font-medium text-gray-700">
+                            D. {{ question.option_d }}
+                        </label>
+                    </div>
+                    {% endif %}
+                    
+                    {% if question.option_e %}
+                    <div class="flex items-center">
+                        <input type="radio" id="option_e" name="answer" value="E" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'E' %}checked{% endif %}>
+                        <label for="option_e" class="ml-3 block text-sm font-medium text-gray-700">
+                            E. {{ question.option_e }}
+                        </label>
+                    </div>
+                    {% endif %}
+                
+                {% elif question.question_type == 'true_false' %}
+                    <div class="flex items-center">
+                        <input type="radio" id="true" name="answer" value="True" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'True' %}checked{% endif %}>
+                        <label for="true" class="ml-3 block text-sm font-medium text-gray-700">
+                            True
+                        </label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="radio" id="false" name="answer" value="False" 
+                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                               {% if existing_response and existing_response.selected_answer == 'False' %}checked{% endif %}>
+                        <label for="false" class="ml-3 block text-sm font-medium text-gray-700">
+                            False
+                        </label>
+                    </div>
+                
+                {% else %} {# essay #}
+                    <textarea name="answer" rows="6" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                              placeholder="Type your answer here...">{% if existing_response %}{{ existing_response.selected_answer }}{% endif %}</textarea>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="flex justify-between">
+            {% if question_index > 0 %}
+            <a href="?question={{ question_index|add:-1 }}" class="btn-primary">
+                <i class="fas fa-arrow-left mr-2"></i> Previous
+            </a>
+            {% else %}
+            <div></div> {# Empty div for spacing #}
+            {% endif %}
+            
+            {% if question_index < total_questions|add:-1 %}
+            <button type="submit" class="btn-primary">
+                Save & Next <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+            {% else %}
+            <button type="submit" name="finish" value="true" class="btn-primary">
+                <i class="fas fa-check-circle mr-2"></i> Finish Exam
+            </button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let timeRemaining = {{ time_remaining }};
+    const examTimer = document.getElementById('examTimer');
+    const examForm = document.getElementById('examForm');
+    const proctoringAlert = document.getElementById('proctoringAlert');
+    const proctoringMessage = document.getElementById('proctoringMessage');
+    
+    // Timer countdown
+    const timerInterval = setInterval(() => {
+        timeRemaining--;
+        
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            examForm.submit();
+            return;
+        }
+        
+        // Update timer display
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        examTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Update timer styling
+        if (timeRemaining < 300) {
+            examTimer.classList.add('timer-critical');
+            examTimer.classList.remove('timer-warning', 'bg-gray-100');
+        } else if (timeRemaining < 900) {
+            examTimer.classList.add('timer-warning');
+            examTimer.classList.remove('timer-critical', 'bg-gray-100');
+        }
+        
+        // Auto-save every 30 seconds
+        if (timeRemaining % 30 === 0) {
+            saveDraft();
+        }
+    }, 1000);
+    
+    // Auto-save function
+    function saveDraft() {
+        const formData = new FormData(examForm);
+        formData.delete('finish');
+        
+        fetch("{% url 'exams:api_save_response' attempt.pk question.pk %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('Draft saved successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving draft:', error);
+        });
+    }
+    
+    // Proctoring simulation (in a real app, this would come from a webhook)
+    function simulateProctoringEvent() {
+        const events = [
+            {type: 'warning', message: 'Please keep your face visible to the camera.'},
+            {type: 'alert', message: 'Multiple faces detected in the camera view.'},
+            {type: 'warning', message: 'Looking away from screen detected.'},
+            {type: 'alert', message: 'Possible use of unauthorized materials detected.'}
+        ];
+        
+        const event = events[Math.floor(Math.random() * events.length)];
+        
+        proctoringMessage.textContent = event.message;
+        
+        if (event.type === 'alert') {
+            proctoringAlert.className = 'proctoring-alert mb-6 p-4 rounded-lg';
+        } else {
+            proctoringAlert.className = 'proctoring-warning mb-6 p-4 rounded-lg';
+        }
+        
+        proctoringAlert.classList.remove('hidden');
+        
+        // Hide after 10 seconds
+        setTimeout(() => {
+            proctoringAlert.classList.add('hidden');
+        }, 10000);
+    }
+    
+    // Simulate proctoring events randomly (for demo purposes)
+    // setInterval(simulateProctoringEvent, 30000);
+    
+    // Prevent leaving the page without warning
+    window.addEventListener('beforeunload', (e) => {
+        if (timeRemaining > 0) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+</script>
+{% endblock %}

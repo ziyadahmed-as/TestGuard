@@ -1,0 +1,173 @@
+{% extends 'exams/base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Question - TestGuard Platform{% endblock %}
+
+{% block page_title %}{% if form.instance.pk %}Edit{% else %}Create New{% endif %} Question{% endblock %}
+{% block page_description %}Add a question to your question bank{% endblock %}
+
+{% block exam_content %}
+<div class="bg-white rounded-xl shadow-md p-6">
+    <form method="post" id="questionForm">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+        <div class="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+        
+        <div class="grid grid-cols-1 gap-6 mb-6">
+            <div>
+                <label for="{{ form.question_bank.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Question Bank</label>
+                {% render_field form.question_bank class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.question_bank.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.question_bank.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.question_text.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
+                {% render_field form.question_text class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" rows="3" %}
+                {% if form.question_text.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.question_text.errors }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <label for="{{ form.question_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                {% render_field form.question_type class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" id="questionType" %}
+                {% if form.question_type.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.question_type.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.points.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Points</label>
+                {% render_field form.points class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.points.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.points.errors }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Multiple Choice Options -->
+        <div id="multipleChoiceOptions" class="mb-6 space-y-4 hidden">
+            <div>
+                <label for="{{ form.option_a.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Option A</label>
+                {% render_field form.option_a class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.option_a.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.option_a.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.option_b.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Option B</label>
+                {% render_field form.option_b class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.option_b.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.option_b.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.option_c.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Option C</label>
+                {% render_field form.option_c class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.option_c.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.option_c.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.option_d.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Option D</label>
+                {% render_field form.option_d class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.option_d.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.option_d.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.option_e.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Option E</label>
+                {% render_field form.option_e class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.option_e.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.option_e.errors }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Correct Answer Field -->
+        <div id="correctAnswerField" class="mb-6">
+            <label for="{{ form.correct_answer.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Correct Answer</label>
+            {% render_field form.correct_answer class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+            {% if form.correct_answer.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.correct_answer.errors }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="mb-6">
+            <label for="{{ form.explanation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Explanation (Optional)</label>
+            {% render_field form.explanation class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" rows="3" %}
+            {% if form.explanation.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.explanation.errors }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="flex justify-end space-x-4">
+            <a href="{% if form.instance.pk %}{% url 'exams:question_bank_detail' form.instance.question_bank.pk %}{% else %}{% url 'exams:question_bank_list' %}{% endif %}" 
+               class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary px-4 py-2">
+                {% if form.instance.pk %}Update Question{% else %}Create Question{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const questionTypeSelect = document.getElementById('questionType');
+        const multipleChoiceOptions = document.getElementById('multipleChoiceOptions');
+        const correctAnswerField = document.getElementById('correctAnswerField');
+        
+        function toggleOptions() {
+            const questionType = questionTypeSelect.value;
+            
+            if (questionType === 'multiple_choice') {
+                multipleChoiceOptions.classList.remove('hidden');
+                // Update correct answer options for multiple choice
+                document.getElementById('id_correct_answer').innerHTML = `
+                    <option value="">Select correct answer</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="E">E</option>
+                `;
+            } else if (questionType === 'true_false') {
+                multipleChoiceOptions.classList.add('hidden');
+                // Update correct answer options for true/false
+                document.getElementById('id_correct_answer').innerHTML = `
+                    <option value="">Select correct answer</option>
+                    <option value="True">True</option>
+                    <option value="False">False</option>
+                `;
+            } else {
+                multipleChoiceOptions.classList.add('hidden');
+                // For essay questions, change the correct answer field to a textarea
+                correctAnswerField.innerHTML = `
+                    <label for="id_correct_answer" class="block text-sm font-medium text-gray-700 mb-1">Model Answer (Optional)</label>
+                    <textarea name="correct_answer" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" rows="4" id="id_correct_answer">{% if form.correct_answer.value %}{{ form.correct_answer.value }}{% endif %}</textarea>
+                `;
+            }
+        }
+        
+        // Initial call
+        toggleOptions();
+        
+        // Add event listener
+        questionTypeSelect.addEventListener('change', toggleOptions);
+    });
+</script>
+{% endblock %}

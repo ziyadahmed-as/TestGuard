@@ -1,0 +1,188 @@
+{% extends 'exams/base.html' %}
+
+{% block title %}Live Monitoring - TestGuard Platform{% endblock %}
+
+{% block page_title %}Live Monitoring Dashboard{% endblock %}
+{% block page_description %}Real-time monitoring of active exam sessions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .monitoring-card {
+        transition: all 0.3s ease;
+    }
+    
+    .monitoring-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .risk-high {
+        border-left: 4px solid #EF4444;
+    }
+    
+    .risk-medium {
+        border-left: 4px solid #F59E0B;
+    }
+    
+    .risk-low {
+        border-left: 4px solid #10B981;
+    }
+    
+    .live-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #EF4444;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block exam_content %}
+{% if exam %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h2 class="text-xl font-semibold text-gray-800">{{ exam.title }}</h2>
+        <p class="text-sm text-gray-500">{{ exam.course.code }} - {{ exam.course.name }}</p>
+    </div>
+    <div class="flex items-center">
+        <div class="live-indicator mr-2"></div>
+        <span class="text-sm text-red-600 font-medium">LIVE</span>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-xl shadow-md p-6 text-center">
+        <p class="text-3xl font-bold text-indigo-600">{{ active_attempts.count }}</p>
+        <p class="text-sm text-gray-600">Active Sessions</p>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-md p-6 text-center">
+        <p class="text-3xl font-bold text-green-600">{{ completed_count }}</p>
+        <p class="text-sm text-gray-600">Completed</p>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-md p-6 text-center">
+        <p class="text-3xl font-bold text-yellow-600">{{ warning_count }}</p>
+        <p class="text-sm text-gray-600">Warnings</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Elapsed</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for attempt in active_attempts %}
+                <tr class="monitoring-card {% if attempt.risk_level == 'high' %}risk-high
+                                          {% elif attempt.risk_level == 'medium' %}risk-medium
+                                          {% else %}risk-low{% endif %}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ attempt.student.get_full_name }}</div>
+                        <div class="text-sm text-gray-500">{{ attempt.student.username }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            In Progress
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ attempt.start_time|timesince }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if attempt.risk_level == 'high' %}bg-red-100 text-red-800
+                            {% elif attempt.risk_level == 'medium' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ attempt.risk_level|title }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{% url 'exams:monitoring_detail' attempt.pk %}" class="text-indigo-600 hover:text-indigo-900 mr-3">View</a>
+                        <a href="#" class="text-red-600 hover:text-red-900" onclick="terminateSession({{ attempt.pk }})">Terminate</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                        No active exam sessions.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl shadow-md p-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Select an Exam to Monitor</h3>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for exam in exams %}
+        <a href="{% url 'exams:monitoring_exam' exam.pk %}" class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <h4 class="font-medium text-gray-800">{{ exam.title }}</h4>
+            <p class="text-sm text-gray-500">{{ exam.course.code }}</p>
+            <div class="mt-2 flex items-center text-sm text-gray-500">
+                <i class="fas fa-users mr-2"></i>
+                <span>{{ exam.active_sessions.count }} active</span>
+            </div>
+        </a>
+        {% empty %}
+        <div class="col-span-full text-center py-8">
+            <i class="fas fa-desktop text-3xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">No active exams to monitor.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function terminateSession(attemptId) {
+        if (confirm('Are you sure you want to terminate this exam session?')) {
+            fetch(`/exams/api/attempts/${attemptId}/terminate/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: 'Terminated by instructor' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error terminating session: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error terminating session');
+            });
+        }
+    }
+    
+    // Refresh the page every 30 seconds to get updated monitoring data
+    setInterval(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

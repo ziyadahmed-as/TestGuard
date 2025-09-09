@@ -1,78 +1,117 @@
-<!-- exams/templates/exams/exam_form.html -->
-{% extends 'core/base.html' %}
+{% extends 'exams/base.html' %}
+{% load widget_tweaks %}
 
-{% block title %}{{ title }} - TestGuard Platform{% endblock %}
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Exam - TestGuard Platform{% endblock %}
 
-{% block content %}
-<div class="md:flex md:items-center md:justify-between mb-6">
-    <div class="flex-1 min-w-0">
-        <h1 class="text-3xl font-bold text-gray-900">{{ title }}</h1>
-    </div>
-</div>
+{% block page_title %}{% if form.instance.pk %}Edit{% else %}Create New{% endif %} Exam{% endblock %}
+{% block page_description %}Configure exam settings and parameters{% endblock %}
 
-<div class="bg-white shadow overflow-hidden sm:rounded-lg">
-    <form method="post" class="px-4 py-5 sm:p-6" enctype="multipart/form-data">
+{% block exam_content %}
+<div class="bg-white rounded-xl shadow-md p-6">
+    <form method="post" id="examForm">
         {% csrf_token %}
         
         {% if form.non_field_errors %}
-        <div class="rounded-md bg-red-50 p-4 mb-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">
-                        There were errors with your submission
-                    </h3>
-                    <div class="mt-2 text-sm text-red-700">
-                        <ul class="list-disc pl-5 space-y-1">
-                            {% for error in form.non_field_errors %}
-                            <li>{{ error }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
+        <div class="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            {{ form.non_field_errors }}
         </div>
         {% endif %}
         
-        <div class="grid grid-cols-1 gap-6">
-            {% for field in form %}
-            <div class="col-span-1">
-                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                    {{ field.label }}
-                    {% if field.field.required %}
-                    <span class="text-red-500">*</span>
-                    {% endif %}
-                </label>
-                
-                <div class="mt-1">
-                    {{ field }}
-                </div>
-                
-                {% if field.help_text %}
-                <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
-                {% endif %}
-                
-                {% if field.errors %}
-                <p class="mt-2 text-sm text-red-600">
-                    {% for error in field.errors %}
-                    {{ error }}
-                    {% endfor %}
-                </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Exam Title</label>
+                {% render_field form.title class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.title.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.title.errors }}</p>
                 {% endif %}
             </div>
-            {% endfor %}
+            
+            <div>
+                <label for="{{ form.course.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                {% render_field form.course class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.course.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.course.errors }}</p>
+                {% endif %}
+            </div>
         </div>
         
-        <div class="px-4 py-3 bg-gray-50 text-right sm:px-6 mt-6">
-            <a href="{% if exam %}{% url 'exams:exam_detail' exam.pk %}{% else %}{% url 'exams:exam_list' %}{% endif %}" class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <label for="{{ form.start_time.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                {% render_field form.start_time type="datetime-local" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.start_time.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.start_time.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.end_time.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                {% render_field form.end_time type="datetime-local" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.end_time.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.end_time.errors }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+                <label for="{{ form.duration.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                {% render_field form.duration class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.duration.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.duration.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.pass_percentage.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Pass Percentage</label>
+                {% render_field form.pass_percentage class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.pass_percentage.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.pass_percentage.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.max_attempts.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Max Attempts</label>
+                {% render_field form.max_attempts class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" %}
+                {% if form.max_attempts.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.max_attempts.errors }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            {% render_field form.description class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" rows="3" %}
+            {% if form.description.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.description.errors }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="mb-6">
+            <label for="{{ form.instructions.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
+            {% render_field form.instructions class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" rows="4" %}
+            {% if form.instructions.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.instructions.errors }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="flex items-center mb-6">
+            {% render_field form.is_published class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %}
+            <label for="{{ form.is_published.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                Publish this exam
+            </label>
+            {% if form.is_published.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.is_published.errors }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="flex justify-end space-x-4">
+            <a href="{% if form.instance.pk %}{% url 'exams:exam_detail' form.instance.pk %}{% else %}{% url 'exams:exam_list' %}{% endif %}" 
+               class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                 Cancel
             </a>
-            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                {{ submit_text }}
+            <button type="submit" class="btn-primary px-4 py-2">
+                {% if form.instance.pk %}Update Exam{% else %}Create Exam{% endif %}
             </button>
         </div>
     </form>

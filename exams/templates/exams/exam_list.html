@@ -1,134 +1,134 @@
-<!-- exams/templates/exams/exam_list.html -->
-{% extends 'core/base.html' %}
+{% extends 'exams/base.html' %}
 
 {% block title %}Exams - TestGuard Platform{% endblock %}
 
-{% block content %}
-<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-    <div class="flex-1 min-w-0">
-        <h1 class="text-3xl font-bold text-gray-900">Exams</h1>
-    </div>
-    {% if request.user.role == 'INSTRUCTOR' or request.user.role == 'ADMIN' %}
-    <div class="mt-4 flex md:mt-0 md:ml-4">
-        <a href="{% url 'exams:exam_create' %}" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Create Exam
+{% block page_title %}Exam Management{% endblock %}
+{% block page_description %}Create and manage exams for your courses{% endblock %}
+
+{% block exam_content %}
+<div class="mb-6 flex justify-between items-center">
+    <div class="flex space-x-4">
+        <a href="{% url 'exams:exam_list' %}?status=active" 
+           class="px-4 py-2 rounded-lg {% if request.GET.status == 'active' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-700{% endif %}">
+            Active
+        </a>
+        <a href="{% url 'exams:exam_list' %}?status=upcoming" 
+           class="px-4 py-2 rounded-lg {% if request.GET.status == 'upcoming' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-700{% endif %}">
+            Upcoming
+        </a>
+        <a href="{% url 'exams:exam_list' %}?status=completed" 
+           class="px-4 py-2 rounded-lg {% if request.GET.status == 'completed' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-700{% endif %}">
+            Completed
+        </a>
+        <a href="{% url 'exams:exam_list' %}?status=draft" 
+           class="px-4 py-2 rounded-lg {% if request.GET.status == 'draft' %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-700{% endif %}">
+            Drafts
         </a>
     </div>
+    
+    {% if user.is_educator %}
+    <a href="{% url 'exams:exam_create' %}" class="btn-primary flex items-center">
+        <i class="fas fa-plus mr-2"></i> Create Exam
+    </a>
     {% endif %}
 </div>
 
-<!-- Search Form -->
-<div class="bg-white shadow rounded-lg p-6 mb-6">
-    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {% for field in form %}
-        <div>
-            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                {{ field.label }}
-            </label>
-            <div class="mt-1">
-                {{ field }}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for exam in exams %}
+    <div class="bg-white rounded-xl shadow-md exam-card p-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">{{ exam.title }}</h3>
+                <p class="text-sm text-gray-500">{{ exam.course.code }} - {{ exam.course.name }}</p>
+            </div>
+            <span class="px-2 py-1 text-xs rounded-full 
+                {% if exam.is_published and exam.start_time <= now and exam.end_time >= now %}bg-green-100 text-green-800
+                {% elif exam.is_published and exam.start_time > now %}bg-blue-100 text-blue-800
+                {% elif exam.is_published and exam.end_time < now %}bg-gray-100 text-gray-800
+                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                {% if exam.is_published and exam.start_time <= now and exam.end_time >= now %}Active
+                {% elif exam.is_published and exam.start_time > now %}Upcoming
+                {% elif exam.is_published and exam.end_time < now %}Completed
+                {% else %}Draft{% endif %}
+            </span>
+        </div>
+        
+        <div class="mb-4">
+            <div class="flex items-center text-sm text-gray-500 mb-1">
+                <i class="fas fa-calendar-alt mr-2"></i>
+                {{ exam.start_time|date:"M d, Y" }} - {{ exam.end_time|date:"M d, Y" }}
+            </div>
+            <div class="flex items-center text-sm text-gray-500 mb-1">
+                <i class="fas fa-clock mr-2"></i>
+                {{ exam.duration }} minutes
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <i class="fas fa-tasks mr-2"></i>
+                {{ exam.questions.count }} questions
             </div>
         </div>
-        {% endfor %}
-        <div class="flex items-end">
-            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Filter
-            </button>
-        </div>
-    </form>
-</div>
-
-<!-- Exams List -->
-<div class="bg-white shadow overflow-hidden sm:rounded-md">
-    <ul class="divide-y divide-gray-200">
-        {% for exam in page_obj %}
-        <li>
-            <a href="{% url 'exams:exam_detail' exam.pk %}" class="block hover:bg-gray-50">
-                <div class="px-4 py-4 sm:px-6">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-blue-600 truncate">{{ exam.title }}</p>
-                        <div class="ml-2 flex-shrink-0 flex">
-                            <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if exam.status == 'LIVE' %}bg-green-100 text-green-800
-                                {% elif exam.status == 'SCHEDULED' %}bg-yellow-100 text-yellow-800
-                                {% elif exam.status == 'DRAFT' %}bg-gray-100 text-gray-800
-                                {% else %}bg-blue-100 text-blue-800{% endif %}">
-                                {{ exam.get_status_display }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="mt-2 sm:flex sm:justify-between">
-                        <div class="sm:flex">
-                            <p class="flex items-center text-sm text-gray-500">
-                                {{ exam.description|truncatewords:20 }}
-                            </p>
-                        </div>
-                        <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                            <p>
-                                {{ exam.start_date|date:"M d, Y" }} - {{ exam.end_date|date:"M d, Y" }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <p class="text-sm text-gray-500">
-                            Duration: {{ exam.duration }} minutes • 
-                            Max Attempts: {{ exam.max_attempts }} • 
-                            Pass Percentage: {{ exam.pass_percentage }}%
-                        </p>
-                    </div>
-                </div>
+        
+        <div class="flex justify-between items-center">
+            <a href="{% url 'exams:exam_detail' exam.pk %}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                View Details
             </a>
-        </li>
-        {% empty %}
-        <li class="px-4 py-5 sm:px-6">
-            <p class="text-sm text-gray-500">No exams found.</p>
-        </li>
-        {% endfor %}
-    </ul>
+            
+            {% if user.is_educator %}
+            <div class="flex space-x-2">
+                <a href="{% url 'exams:exam_update' exam.pk %}" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-edit"></i>
+                </a>
+                {% if exam.is_published %}
+                <a href="{% url 'exams:exam_toggle_publish' exam.pk %}" class="text-yellow-500 hover:text-yellow-700">
+                    <i class="fas fa-eye-slash"></i>
+                </a>
+                {% else %}
+                <a href="{% url 'exams:exam_toggle_publish' exam.pk %}" class="text-green-500 hover:text-green-700">
+                    <i class="fas fa-eye"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% elif user.is_student and exam.is_published and exam.start_time <= now and exam.end_time >= now %}
+            <a href="{% url 'exams:start_exam' exam.pk %}" class="btn-primary px-4 py-2 text-sm">
+                Start Exam
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12">
+        <i class="fas fa-file-alt text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500">No exams found.</p>
+        {% if user.is_educator %}
+        <a href="{% url 'exams:exam_create' %}" class="btn-primary mt-4 inline-block">Create your first exam</a>
+        {% endif %}
+    </div>
+    {% endfor %}
 </div>
 
-<!-- Pagination -->
-{% if page_obj.has_other_pages %}
-<div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6">
-    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-        <div>
-            <p class="text-sm text-gray-700">
-                Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span> of <span class="font-medium">{{ page_obj.paginator.count }}</span> results
-            </p>
-        </div>
-        <div>
-            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                    <span class="sr-only">Previous</span>
-                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                </a>
-                {% endif %}
-
-                {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-500 text-sm font-medium text-white">
-                        {{ num }}
-                    </a>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        {{ num }}
-                    </a>
-                    {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                    <span class="sr-only">Next</span>
-                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
-                </a>
-                {% endif %}
-            </nav>
-        </div>
+{% if is_paginated %}
+<div class="mt-8 flex justify-center">
+    <div class="flex space-x-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            Previous
+        </a>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        <a href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 rounded-lg {% if page_obj.number == num %}bg-indigo-600 text-white{% else %}bg-white border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %}">
+            {{ num }}
+        </a>
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            Next
+        </a>
+        {% endif %}
     </div>
 </div>
 {% endif %}
