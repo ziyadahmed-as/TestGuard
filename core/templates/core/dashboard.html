@@ -99,11 +99,11 @@
                 <p class="text-sm text-gray-600">Students</p>
             </div>
             <div class="text-center p-4 bg-purple-50 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600">0</div>
+                <div class="text-2xl font-bold text-purple-600">{{ exam_count }}</div>
                 <p class="text-sm text-gray-600">Created Exams</p>
             </div>
             <div class="text-center p-4 bg-amber-50 rounded-lg">
-                <div class="text-2xl font-bold text-amber-600">0</div>
+                <div class="text-2xl font-bold text-amber-600">{{ pending_reviews_count }}</div>
                 <p class="text-sm text-gray-600">Pending Reviews</p>
             </div>
             {% elif user.is_student %}
@@ -112,15 +112,15 @@
                 <p class="text-sm text-gray-600">Enrolled Courses</p>
             </div>
             <div class="text-center p-4 bg-green-50 rounded-lg">
-                <div class="text-2xl font-bold text-green-600">0</div>
+                <div class="text-2xl font-bold text-green-600">{{ completed_exams_count }}</div>
                 <p class="text-sm text-gray-600">Completed Exams</p>
             </div>
             <div class="text-center p-4 bg-purple-50 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600">0</div>
+                <div class="text-2xl font-bold text-purple-600">{{ upcoming_exams_count }}</div>
                 <p class="text-sm text-gray-600">Upcoming Exams</p>
             </div>
             <div class="text-center p-4 bg-amber-50 rounded-lg">
-                <div class="text-2xl font-bold text-amber-600">0%</div>
+                <div class="text-2xl font-bold text-amber-600">{{ average_score }}%</div>
                 <p class="text-sm text-gray-600">Average Score</p>
             </div>
             {% endif %}
@@ -177,36 +177,36 @@
                 </div>
                 <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
             </a>
-            <a href="{% url 'core:admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:monitoring_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-amber-600 mb-2">
-                    <i class="fas fa-history text-2xl"></i>
-                </div>
-                <span class="text-sm font-medium text-gray-700">Activity Logs</span>
-            </a>
-            {% elif user.is_instructor %}
-            <a href="{% url 'core:course_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
-                <div class="text-blue-600 mb-2">
-                    <i class="fas fa-book text-2xl"></i>
-                </div>
-                <span class="text-sm font-medium text-gray-700">My Courses</span>
-            </a>
-            <a href="{% url 'core:section_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
-                <div class="text-green-600 mb-2">
-                    <i class="fas fa-chalkboard text-2xl"></i>
-                </div>
-                <span class="text-sm font-medium text-gray-700">My Sections</span>
-            </a>
-            <a href="{% url 'core:enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
-                <div class="text-purple-600 mb-2">
-                    <i class="fas fa-user-graduate text-2xl"></i>
-                </div>
-                <span class="text-sm font-medium text-gray-700">Enrollments</span>
-            </a>
-            <a href="{% url 'exams:monitoring_events' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
-                <div class="text-amber-600 mb-2">
-                    <i class="fas fa-eye text-2xl"></i>
+                    <i class="fas fa-desktop text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Monitoring</span>
+            </a>
+            {% elif user.is_instructor %}
+            <a href="{% url 'exams:exam_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-blue-600 mb-2">
+                    <i class="fas fa-plus-circle text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Create Exam</span>
+            </a>
+            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-green-600 mb-2">
+                    <i class="fas fa-list text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">My Exams</span>
+            </a>
+            <a href="{% url 'exams:monitoring_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-purple-600 mb-2">
+                    <i class="fas fa-desktop text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Live Monitoring</span>
+            </a>
+            <a href="{% url 'exams:results_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+                <div class="text-amber-600 mb-2">
+                    <i class="fas fa-chart-bar text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Results</span>
             </a>
             {% elif user.is_student %}
             <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
@@ -215,17 +215,17 @@
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Exams</span>
             </a>
-            <a href="{% url 'core:enrollment_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_schedule' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-green-600 mb-2">
-                    <i class="fas fa-book text-2xl"></i>
+                    <i class="fas fa-calendar text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">My Courses</span>
+                <span class="text-sm font-medium text-gray-700">Exam Schedule</span>
             </a>
-            <a href="{% url 'core:profile' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:results_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-purple-600 mb-2">
-                    <i class="fas fa-user text-2xl"></i>
+                    <i class="fas fa-chart-line text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">My Profile</span>
+                <span class="text-sm font-medium text-gray-700">My Results</span>
             </a>
             <a href="{% url 'core:device_sessions' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
                 <div class="text-amber-600 mb-2">
@@ -269,6 +269,36 @@
                     </div>
                 </div>
                 {% endif %}
+                
+                {% if user.is_instructor and exam_activity %}
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="p-2 bg-purple-100 rounded-full text-purple-600">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-gray-900">Exam Activity</p>
+                        <p class="text-sm text-gray-500">{{ exam_activity }}</p>
+                        <p class="text-xs text-gray-400 mt-1">Today</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if user.is_student and last_exam_activity %}
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="p-2 bg-green-100 rounded-full text-green-600">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-gray-900">Exam Completed</p>
+                        <p class="text-sm text-gray-500">{{ last_exam_activity }}</p>
+                        <p class="text-xs text-gray-400 mt-1">Today</p>
+                    </div>
+                </div>
+                {% endif %}
             {% else %}
                 <div class="text-center py-8">
                     <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
@@ -280,11 +310,11 @@
 </div>
 
 <!-- Upcoming Exams Section -->
-{% if user.is_student or user.is_instructor %}
+{% if upcoming_exams %}
 <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-gray-800">Upcoming Exams</h3>
-        <a href="{% url 'exams:exam_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        <a href="{% url 'exams:exam_schedule' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -294,9 +324,13 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    {% if user.is_instructor %}
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
+                {% for exam in upcoming_exams|slice:":5" %}
                 <tr>
                     <td class="px-4 py-4 whitespace-nowrap">
                         <div class="flex items-center">
@@ -304,47 +338,84 @@
                                 <i class="fas fa-file-alt text-indigo-600"></i>
                             </div>
                             <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">Midterm Examination</div>
-                                <div class="text-sm text-gray-500">Computer Science 101</div>
+                                <div class="text-sm font-medium text-gray-900">{{ exam.title }}</div>
+                                <div class="text-sm text-gray-500">{{ exam.course.name }}</div>
                             </div>
                         </div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        Oct 15, 2023 10:00 AM
+                        {{ exam.start_time|date:"M d, Y H:i" }}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        120 minutes
+                        {{ exam.duration }} minutes
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            Scheduled
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if exam.status == 'scheduled' %}bg-yellow-100 text-yellow-800
+                            {% elif exam.status == 'in_progress' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ exam.get_status_display }}
                         </span>
                     </td>
+                    {% if user.is_instructor %}
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{% url 'exams:monitoring_exam' exam.id %}" class="text-indigo-600 hover:text-indigo-900 mr-3">Monitor</a>
+                        <a href="{% url 'exams:exam_edit' exam.id %}" class="text-green-600 hover:text-green-900">Edit</a>
+                    </td>
+                    {% endif %}
                 </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Active Exam Sessions (for instructors) -->
+{% if user.is_instructor and active_exam_sessions %}
+<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Active Exam Sessions</h3>
+        <a href="{% url 'exams:monitoring_dashboard' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for session in active_exam_sessions|slice:":3" %}
                 <tr>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-file-alt text-green-600"></i>
-                            </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">Final Assessment</div>
-                                <div class="text-sm text-gray-500">Mathematics 202</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        Dec 5, 2023 2:00 PM
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        90 minutes
+                        <div class="text-sm font-medium text-gray-900">{{ session.exam.title }}</div>
+                        <div class="text-sm text-gray-500">{{ session.exam.course.code }}</div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            Scheduled
+                        <div class="text-sm font-medium text-gray-900">{{ session.student.get_full_name }}</div>
+                        <div class="text-sm text-gray-500">{{ session.student.username }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ session.start_time|timesince }} ago
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if session.risk_level == 'high' %}bg-red-100 text-red-800
+                            {% elif session.risk_level == 'medium' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ session.risk_level|title }}
                         </span>
                     </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{% url 'exams:monitoring_detail' session.id %}" class="text-indigo-600 hover:text-indigo-900">View</a>
+                    </td>
                 </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -391,6 +462,59 @@
                             {% else %}bg-gray-100 text-gray-800{% endif %}">
                             {% if enrollment.is_active %}Active{% else %}Inactive{% endif %}
                         </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Exam Results (for students) -->
+{% if user.is_student and recent_results %}
+<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Recent Exam Results</h3>
+        <a href="{% url 'exams:results_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for result in recent_results|slice:":3" %}
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ result.exam.title }}</div>
+                        <div class="text-sm text-gray-500">{{ result.exam.course.code }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ result.completed_at|date:"M d, Y" }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium 
+                        {% if result.score >= 80 %}text-green-600
+                        {% elif result.score >= 60 %}text-yellow-600
+                        {% else %}text-red-600{% endif %}">
+                        {{ result.score }}%
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if result.status == 'passed' %}bg-green-100 text-green-800
+                            {% elif result.status == 'failed' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ result.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{% url 'exams:exam_result' result.id %}" class="text-indigo-600 hover:text-indigo-900">View Details</a>
                     </td>
                 </tr>
                 {% endfor %}
