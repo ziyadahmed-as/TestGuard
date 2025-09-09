@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.core.files.base import ContentFile
-from core.models import User, Section, Institution, UserDeviceSession, ActiveExamSession
+from core.models import User, Section, Institution, UserDeviceSession
 
 
 class BulkQuestionImport(models.Model):
@@ -615,7 +615,7 @@ class ExamAttempt(models.Model):
     
     # Device session tracking
     device_session = models.ForeignKey(
-        'core.UserDeviceSession', 
+        UserDeviceSession, 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
@@ -1041,6 +1041,96 @@ class MonitoringEvent(models.Model):
         ]
 
 
+class ActiveExamSession(models.Model):
+    """
+    Tracks currently active exam sessions for monitoring and security purposes.
+    Provides real-time visibility into ongoing exam attempts.
+    """
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='active_exam_sessions',
+        help_text="User with an active exam session"
+    )
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name='active_sessions',
+        help_text="Exam being attempted"
+    )
+    attempt = models.ForeignKey(
+        ExamAttempt,
+        on_delete=models.CASCADE,
+        related_name='active_session',
+        help_text="Specific exam attempt associated with this session"
+    )
+    device_session = models.ForeignKey(
+        UserDeviceSession,
+        on_delete=models.CASCADE,
+        related_name='active_exam_sessions',
+        help_text="Device session used for this exam attempt"
+    )
+    session_token = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique identifier for this active session"
+    )
+    started_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp when the session started"
+    )
+    last_activity = models.DateTimeField(
+        auto_now=True,
+        help_text="Timestamp of the last activity in this session"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Indicates whether this session is currently active"
+    )
+    risk_level = models.CharField(
+        max_length=10,
+        choices=[('low', 'Low'), ('medium', 'Medium'), ('high', 'High')],
+        default='low',
+        help_text="Current risk level assessment for this session"
+    )
+
+    class Meta:
+        unique_together = ['user', 'exam']
+        indexes = [
+            models.Index(fields=['user', 'exam']),
+            models.Index(fields=['session_token']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['risk_level']),
+        ]
+        verbose_name = "Active Exam Session"
+        verbose_name_plural = "Active Exam Sessions"
+
+    def __str__(self):
+        return f"Active session: {self.user.username} - {self.exam.title}"
+
+    @property
+    def duration(self):
+        """Calculate the duration of the active session in minutes."""
+        return (timezone.now() - self.started_at).total_seconds() / 60
+
+    def update_risk_level(self, new_risk_level):
+        """
+        Update the risk level for this session.
+        
+        Args:
+            new_risk_level (str): New risk level ('low', 'medium', 'high')
+        """
+        if new_risk_level in ['low', 'medium', 'high']:
+            self.risk_level = new_risk_level
+            self.save(update_fields=['risk_level'])
+
+    def deactivate(self):
+        """Deactivate this session."""
+        self.is_active = False
+        self.save(update_fields=['is_active'])
+
+
 # Signal Handlers for Automated System Management
 @receiver(pre_save, sender=ExamAttempt)
 def validate_single_device_access(sender, instance, **kwargs):
@@ -1076,6 +1166,4 @@ def manage_active_sessions(sender, instance, created, **kwargs):
         ActiveExamSession.objects.filter(
             user=instance.student,
             exam=instance.exam
-        ).update(is_active=False) 
-      
- 
+        ).update(is_active=False)
