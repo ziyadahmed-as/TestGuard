@@ -7,11 +7,19 @@ app_name = 'core'
 urlpatterns = [
     # Authentication URLs
     path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='core:login'), name='logout'),
     
     # Dashboard and Profile
     path('', views.dashboard, name='dashboard'),
     path('profile/', views.profile, name='profile'),
+    
+    # Profile Management URLs
+    path('profile/update/', views.ProfileUpdateView.as_view(), name='profile_update'),
+    path('profile/detail/', views.ProfileDetailView.as_view(), name='profile_detail'),
+    path('profiles/<int:pk>/', views.ProfileDetailView.as_view(), name='profile_admin_detail'),
+    path('profiles/<int:pk>/update/', views.ProfileAdminUpdateView.as_view(), name='profile_admin_update'),
+    path('profiles/<int:pk>/verify/', views.profile_verify, name='profile_verify'),
+    path('profiles/<int:pk>/unverify/', views.profile_unverify, name='profile_unverify'),
     
     # Institution URLs (Superadmin only)
     path('institutions/', views.InstitutionListView.as_view(), name='institution_list'),
@@ -67,10 +75,6 @@ urlpatterns = [
     # Device Session URLs
     path('device-sessions/', views.device_sessions, name='device_sessions'),
     path('device-sessions/<int:pk>/deactivate/', views.deactivate_device_session, name='deactivate_device_session'),
-    
-    # Exam Session URLs
-    path('exam-sessions/', views.active_exam_sessions, name='active_exam_sessions'),
-    path('exam-sessions/<int:pk>/terminate/', views.terminate_exam_session, name='terminate_exam_session'),
     
     # API URLs for AJAX calls
     path('api/institution/<int:institution_id>/departments/', views.get_institution_departments, name='api_institution_departments'),

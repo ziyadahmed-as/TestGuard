@@ -11,6 +11,8 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class Institution(models.Model):
@@ -59,6 +61,20 @@ class Institution(models.Model):
     def user_count(self):
         """Return the total number of active users in the institution."""
         return self.users.filter(is_active=True).count()
+
+    @classmethod
+    def get_system_institution(cls):
+        """
+        Get or create the system institution for superadmins.
+        """
+        system_inst, created = cls.objects.get_or_create(
+            name="System",
+            defaults={
+                'domain': 'system.local',
+                'is_active': True
+            }
+        )
+        return system_inst
 
     def create_multiple_users(self, user_data_list, created_by):
         """
@@ -135,11 +151,6 @@ class Institution(models.Model):
         return user
 
 
-from django.contrib.auth.models import AbstractUser
-from django.core.exceptions import ValidationError
-from django.db import models
-
-
 class User(AbstractUser):
     """
     Custom user model with role-based access control and institutional affiliation.
@@ -181,6 +192,8 @@ class User(AbstractUser):
         "Institution",
         on_delete=models.CASCADE,
         related_name="users",
+        null=True,  # Allow null for superadmins
+        blank=True,
         help_text="Institution this user belongs to.",
     )
 
@@ -211,7 +224,19 @@ class User(AbstractUser):
             models.Index(fields=["created_at"]),
             models.Index(fields=["created_by"]),
         ]
-        unique_together = ["institution", "email"]
+        # Remove unique_together constraint for superadmins
+        constraints = [
+            models.UniqueConstraint(
+                fields=['institution', 'email'],
+                name='unique_institution_email',
+                condition=models.Q(institution__isnull=False)
+            ),
+            models.UniqueConstraint(
+                fields=['email'],
+                name='unique_superadmin_email',
+                condition=models.Q(institution__isnull=True)
+            ),
+        ]
         ordering = ["last_name", "first_name"]
         verbose_name = "User"
         verbose_name_plural = "Users"
@@ -224,6 +249,11 @@ class User(AbstractUser):
         self.clean()
         if not self.username:
             self.username = self.email
+            
+        # For superadmins without an institution, assign the system institution
+        if self.role == self.Role.SUPERADMIN and not self.institution:
+            self.institution = Institution.get_system_institution()
+            
         super().save(*args, **kwargs)
 
     def get_full_name(self):
@@ -275,6 +305,10 @@ class User(AbstractUser):
         # Only superusers can create institution admins
         if self.role == self.Role.ADMIN and self.created_by and not self.created_by.is_superuser:
             raise ValidationError("Only superusers can create institution admin accounts.")
+            
+        # Superadmins must have a system institution
+        if self.role == self.Role.SUPERADMIN and not self.institution:
+            self.institution = Institution.get_system_institution()
 
         super().clean()
 
@@ -286,6 +320,122 @@ class User(AbstractUser):
         print(f"Welcome email sent to {self.email}")
         if password:
             print(f"Temporary password: {password}")
+
+
+class Profile(models.Model):
+    """
+    Extended user profile with additional information and admin-only fields.
+    Certain attributes can only be modified by administrators.
+    """
+    
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='profile',
+        help_text="User associated with this profile"
+    )
+    
+    # Personal information (editable by user)
+    bio = models.TextField(
+        max_length=500, 
+        blank=True, 
+        null=True,
+        help_text="Personal biography or description"
+    )
+    image = models.ImageField(
+        default='default.jpg', 
+        upload_to='profile_pics',
+        help_text="Profile picture"
+    )
+    phone = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        help_text="Contact phone number"
+    )
+    date_of_birth = models.DateField(
+        blank=True, 
+        null=True,
+        help_text="User's date of birth"
+    )
+    
+    # Academic information (admin-only)
+    student_id = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True,
+        help_text="Student identification number (admin-only)"
+    )
+    faculty = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="Faculty or school name (admin-only)"
+    )
+    section = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True,
+        help_text="Academic section or class (admin-only)"
+    )
+    
+    # Administrative fields (admin-only)
+    is_verified = models.BooleanField(
+        default=False,
+        help_text="Designates whether this user has been verified by an administrator"
+    )
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Administrative notes about this user"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    verified_at = models.DateTimeField(
+        blank=True, 
+        null=True,
+        help_text="Timestamp when the user was verified by an administrator"
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['is_verified']),
+            models.Index(fields=['student_id']),
+        ]
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+    
+    def clean(self):
+        """Validation for student-specific fields."""
+        if self.user.role == User.Role.STUDENT and not self.student_id:
+            raise ValidationError({'student_id': 'Student ID is required for students.'})
+    
+    def save(self, *args, **kwargs):
+        """Set verified_at timestamp when is_verified changes to True."""
+        if self.is_verified and not self.verified_at:
+            self.verified_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+# Signal to create a profile when a new user is created
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+
+
+# Signal to save the profile when the user is saved
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
 
 
 class AdminUserCreationLog(models.Model):
@@ -513,7 +663,7 @@ class UserDeviceSession(models.Model):
     class Meta:
         unique_together = ['user', 'device_hash']
         indexes = [
-            models.Index(fields=['user', 'is_active']),  # FIXED: Changed [] to ()
+            models.Index(fields=['user', 'is_active']),
             models.Index(fields=['last_activity']),
             models.Index(fields=['device_hash']),
             models.Index(fields=['first_seen']),
@@ -522,7 +672,6 @@ class UserDeviceSession(models.Model):
         verbose_name = "User Device Session"
         verbose_name_plural = "User Device Sessions"
 
-    # ... rest of the UserDeviceSession methods ...
     def __str__(self):
         return f"{self.user.email} - Device {self.device_hash[:12]}"
 
@@ -610,109 +759,6 @@ class UserDeviceSession(models.Model):
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0]
         return request.META.get('REMOTE_ADDR')
-
-
-class ActiveExamSession(models.Model):
-    """
-    Manages active exam sessions with concurrency control and device validation.
-    Ensures single active exam session per user with device fingerprinting.
-    """
-    
-    user = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='active_exam_sessions',
-        help_text="User participating in the exam session"
-    )
-    exam = models.ForeignKey(
-        'exams.Exam', 
-        on_delete=models.CASCADE, 
-        related_name='active_sessions',
-        help_text="Exam associated with this active session"
-    )
-    device_session = models.ForeignKey(
-        UserDeviceSession, 
-        on_delete=models.CASCADE, 
-        related_name='exam_sessions',
-        help_text="Device session used for this exam attempt"
-    )
-    attempt = models.OneToOneField(
-        'exams.ExamAttempt', 
-        on_delete=models.CASCADE, 
-        related_name='active_session',
-        help_text="Specific exam attempt associated with this session"
-    )
-    session_token = models.UUIDField(
-        default=uuid.uuid4, 
-        unique=True,
-        help_text="Unique identifier for this exam session"
-    )
-    started_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="Timestamp when the exam session commenced"
-    )
-    last_activity = models.DateTimeField(
-        auto_now=True,
-        help_text="Timestamp of the most recent activity during this session"
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Designates whether this exam session is currently active"
-    )
-
-    class Meta:
-        unique_together = ['user', 'exam']
-        indexes = [
-            models.Index(fields=['session_token']),
-            models.Index(fields=['user', 'is_active']),
-            models.Index(fields=['last_activity']),
-            models.Index(fields=['device_session']),
-            models.Index(fields=['started_at']),
-        ]
-        verbose_name = "Active Exam Session"
-        verbose_name_plural = "Active Exam Sessions"
-
-    def __str__(self):
-        return f"{self.user.email} - {self.exam.title} - {self.session_token[:8]}"
-
-    def is_valid(self, current_device_hash):
-        """
-        Validate session authenticity and activity status.
-        
-        Args:
-            current_device_hash (str): Device hash from current request
-            
-        Returns:
-            bool: True if session is valid and active
-        """
-        return (self.is_active and 
-                self.device_session.device_hash == current_device_hash and
-                (timezone.now() - self.last_activity).total_seconds() < 300)
-
-    def refresh_activity(self):
-        """Update the last activity timestamp to maintain session validity."""
-        self.last_activity = timezone.now()
-        self.save(update_fields=['last_activity'])
-
-    def terminate(self, reason="Session terminated by system"):
-        """
-        Terminate the exam session and associated attempt.
-        
-        Args:
-            reason (str): Explanation for session termination
-        """
-        self.is_active = False
-        self.save(update_fields=['is_active', 'last_activity'])
-        
-        if self.attempt:
-            self.attempt.terminate_session(reason)
-
-    @property
-    def duration_minutes(self):
-        """Calculate the total duration of the exam session in minutes."""
-        if self.started_at and self.last_activity:
-            return (self.last_activity - self.started_at).total_seconds() / 60
-        return 0
 
 
 class AcademicDepartment(models.Model):

@@ -1,37 +1,39 @@
-{% extends 'base.html' %}
+{% extends "core/base.html" %}
 {% load humanize %}
 
-{% block title %}Dashboard - TestGuard Platform{% endblock %}
-
-{% block page_title %}Dashboard Overview{% endblock %}
-{% block page_description %}Welcome back, {{ user.get_full_name|default:user.username }}. Here's an overview of your activities.{% endblock %}
+{% block title %}Dashboard - EduPlatform{% endblock %}
 
 {% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+    <p class="mt-2 text-gray-600">Welcome back, {{ user.get_full_name|default:user.username }}. Here's an overview of your activities.</p>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <!-- User Summary Card -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+    <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center mb-4">
-            <div class="flex-shrink-0 h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
+            <div class="flex-shrink-0 h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
                 {% if user.is_student %}
-                <i class="fas fa-user-graduate text-indigo-600 text-xl"></i>
+                <i class="fas fa-user-graduate text-primary-600 text-xl"></i>
                 {% elif user.is_instructor %}
-                <i class="fas fa-chalkboard-teacher text-indigo-600 text-xl"></i>
+                <i class="fas fa-chalkboard-teacher text-primary-600 text-xl"></i>
                 {% elif user.is_admin %}
-                <i class="fas fa-user-cog text-indigo-600 text-xl"></i>
+                <i class="fas fa-user-cog text-primary-600 text-xl"></i>
                 {% elif user.is_superadmin %}
-                <i class="fas fa-user-shield text-indigo-600 text-xl"></i>
+                <i class="fas fa-user-shield text-primary-600 text-xl"></i>
                 {% else %}
-                <i class="fas fa-user text-indigo-600 text-xl"></i>
+                <i class="fas fa-user text-primary-600 text-xl"></i>
                 {% endif %}
             </div>
             <div class="ml-4">
                 <h3 class="text-lg font-semibold text-gray-800">{{ user.get_full_name|default:user.username }}</h3>
                 <p class="text-sm text-gray-500 capitalize">
-                    <span class="role-badge 
-                        {% if user.is_superadmin %}badge-superadmin
-                        {% elif user.is_admin %}badge-admin
-                        {% elif user.is_instructor %}badge-instructor
-                        {% else %}badge-student{% endif %}">
+                    <span class="px-2 py-1 rounded-full text-xs font-medium
+                        {% if user.is_superadmin %}bg-purple-100 text-purple-800
+                        {% elif user.is_admin %}bg-blue-100 text-blue-800
+                        {% elif user.is_instructor %}bg-green-100 text-green-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
                         {{ user.get_role_display }}
                     </span>
                 </p>
@@ -52,7 +54,7 @@
     </div>
 
     <!-- Quick Stats -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm lg:col-span-2 card-hover">
+    <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Stats</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             {% if user.is_superadmin %}
@@ -99,12 +101,12 @@
                 <p class="text-sm text-gray-600">Students</p>
             </div>
             <div class="text-center p-4 bg-purple-50 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600">{{ exam_count }}</div>
+                <div class="text-2xl font-bold text-purple-600">{{ exam_count|default:0 }}</div>
                 <p class="text-sm text-gray-600">Created Exams</p>
             </div>
             <div class="text-center p-4 bg-amber-50 rounded-lg">
-                <div class="text-2xl font-bold text-amber-600">{{ pending_reviews_count }}</div>
-                <p class="text-sm text-gray-600">Pending Reviews</p>
+                <div class="text-2xl font-bold text-amber-600">{{ question_bank_count|default:0 }}</div>
+                <p class="text-sm text-gray-600">Question Banks</p>
             </div>
             {% elif user.is_student %}
             <div class="text-center p-4 bg-blue-50 rounded-lg">
@@ -112,15 +114,15 @@
                 <p class="text-sm text-gray-600">Enrolled Courses</p>
             </div>
             <div class="text-center p-4 bg-green-50 rounded-lg">
-                <div class="text-2xl font-bold text-green-600">{{ completed_exams_count }}</div>
+                <div class="text-2xl font-bold text-green-600">{{ completed_exams|default:0 }}</div>
                 <p class="text-sm text-gray-600">Completed Exams</p>
             </div>
             <div class="text-center p-4 bg-purple-50 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600">{{ upcoming_exams_count }}</div>
+                <div class="text-2xl font-bold text-purple-600">{{ upcoming_exams|default:0 }}</div>
                 <p class="text-sm text-gray-600">Upcoming Exams</p>
             </div>
             <div class="text-center p-4 bg-amber-50 rounded-lg">
-                <div class="text-2xl font-bold text-amber-600">{{ average_score }}%</div>
+                <div class="text-2xl font-bold text-amber-600">{{ average_score|default:0 }}%</div>
                 <p class="text-sm text-gray-600">Average Score</p>
             </div>
             {% endif %}
@@ -130,104 +132,104 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Quick Access -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+    <div class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Access</h3>
         <div class="grid grid-cols-2 gap-4">
             {% if user.is_superadmin %}
-            <a href="{% url 'core:user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-user-plus text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create User</span>
             </a>
-            <a href="{% url 'core:institution_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'institution_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-school text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create Institution</span>
             </a>
-            <a href="{% url 'core:bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-purple-600 mb-2">
                     <i class="fas fa-file-import text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
             </a>
-            <a href="{% url 'core:admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'admin_user_creation_log_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-amber-600 mb-2">
                     <i class="fas fa-history text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Activity Logs</span>
             </a>
             {% elif user.is_admin %}
-            <a href="{% url 'core:user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'user_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-user-plus text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create User</span>
             </a>
-            <a href="{% url 'core:academic_department_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'academic_department_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-graduation-cap text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create Department</span>
             </a>
-            <a href="{% url 'core:bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'bulk_user_upload' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-purple-600 mb-2">
                     <i class="fas fa-file-import text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Bulk Upload</span>
             </a>
-            <a href="{% url 'exams:monitoring_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-amber-600 mb-2">
-                    <i class="fas fa-desktop text-2xl"></i>
+                    <i class="fas fa-file-alt text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">Monitoring</span>
+                <span class="text-sm font-medium text-gray-700">Exam Management</span>
             </a>
             {% elif user.is_instructor %}
-            <a href="{% url 'exams:exam_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_create' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-plus-circle text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Create Exam</span>
             </a>
-            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-green-600 mb-2">
                     <i class="fas fa-list text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Exams</span>
             </a>
-            <a href="{% url 'exams:monitoring_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:question_bank_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-purple-600 mb-2">
+                    <i class="fas fa-database text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700">Question Banks</span>
+            </a>
+            <a href="{% url 'exams:monitoring_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
+                <div class="text-amber-600 mb-2">
                     <i class="fas fa-desktop text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">Live Monitoring</span>
             </a>
-            <a href="{% url 'exams:results_dashboard' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
-                <div class="text-amber-600 mb-2">
-                    <i class="fas fa-chart-bar text-2xl"></i>
-                </div>
-                <span class="text-sm font-medium text-gray-700">Results</span>
-            </a>
             {% elif user.is_student %}
-            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-blue-600 mb-2">
                     <i class="fas fa-file-alt text-2xl"></i>
                 </div>
                 <span class="text-sm font-medium text-gray-700">My Exams</span>
             </a>
-            <a href="{% url 'exams:exam_schedule' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'exams:exam_attempt_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-green-600 mb-2">
-                    <i class="fas fa-calendar text-2xl"></i>
+                    <i class="fas fa-history text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">Exam Schedule</span>
+                <span class="text-sm font-medium text-gray-700">Exam History</span>
             </a>
-            <a href="{% url 'exams:results_list' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'profile' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-purple-600 mb-2">
-                    <i class="fas fa-chart-line text-2xl"></i>
+                    <i class="fas fa-user text-2xl"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-700">My Results</span>
+                <span class="text-sm font-medium text-gray-700">My Profile</span>
             </a>
-            <a href="{% url 'core:device_sessions' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors card-hover">
+            <a href="{% url 'device_sessions' %}" class="p-4 border border-gray-200 rounded-lg text-center hover:bg-gray-50 transition-colors">
                 <div class="text-amber-600 mb-2">
                     <i class="fas fa-laptop text-2xl"></i>
                 </div>
@@ -238,7 +240,7 @@
     </div>
 
     <!-- Recent Activity -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+    <div class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
         <div class="space-y-4">
             {% if user.is_authenticated %}
@@ -309,125 +311,12 @@
     </div>
 </div>
 
-<!-- Upcoming Exams Section -->
-{% if upcoming_exams %}
-<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">Upcoming Exams</h3>
-        <a href="{% url 'exams:exam_schedule' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    {% if user.is_instructor %}
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for exam in upcoming_exams|slice:":5" %}
-                <tr>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-file-alt text-indigo-600"></i>
-                            </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">{{ exam.title }}</div>
-                                <div class="text-sm text-gray-500">{{ exam.course.name }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ exam.start_time|date:"M d, Y H:i" }}
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ exam.duration }} minutes
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if exam.status == 'scheduled' %}bg-yellow-100 text-yellow-800
-                            {% elif exam.status == 'in_progress' %}bg-blue-100 text-blue-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ exam.get_status_display }}
-                        </span>
-                    </td>
-                    {% if user.is_instructor %}
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{% url 'exams:monitoring_exam' exam.id %}" class="text-indigo-600 hover:text-indigo-900 mr-3">Monitor</a>
-                        <a href="{% url 'exams:exam_edit' exam.id %}" class="text-green-600 hover:text-green-900">Edit</a>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
-<!-- Active Exam Sessions (for instructors) -->
-{% if user.is_instructor and active_exam_sessions %}
-<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">Active Exam Sessions</h3>
-        <a href="{% url 'exams:monitoring_dashboard' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for session in active_exam_sessions|slice:":3" %}
-                <tr>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ session.exam.title }}</div>
-                        <div class="text-sm text-gray-500">{{ session.exam.course.code }}</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ session.student.get_full_name }}</div>
-                        <div class="text-sm text-gray-500">{{ session.student.username }}</div>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ session.start_time|timesince }} ago
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if session.risk_level == 'high' %}bg-red-100 text-red-800
-                            {% elif session.risk_level == 'medium' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-green-100 text-green-800{% endif %}">
-                            {{ session.risk_level|title }}
-                        </span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{% url 'exams:monitoring_detail' session.id %}" class="text-indigo-600 hover:text-indigo-900">View</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
 <!-- Recent Enrollments (for students) -->
 {% if user.is_student and enrollments %}
-<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+<div class="bg-white rounded-lg shadow p-6 mb-6">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-gray-800">My Enrollments</h3>
-        <a href="{% url 'core:enrollment_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        <a href="{% url 'enrollment_list' %}" class="text-sm text-primary hover:text-primary-dark font-medium">View All</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -471,50 +360,98 @@
 </div>
 {% endif %}
 
-<!-- Recent Exam Results (for students) -->
-{% if user.is_student and recent_results %}
-<div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6 card-hover">
+<!-- Teaching Sections (for instructors) -->
+{% if user.is_instructor and teaching_sections %}
+<div class="bg-white rounded-lg shadow p-6 mb-6">
     <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">Recent Exam Results</h3>
-        <a href="{% url 'exams:results_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+        <h3 class="text-lg font-semibold text-gray-800">My Teaching Sections</h3>
+        <a href="{% url 'section_list' %}" class="text-sm text-primary hover:text-primary-dark font-medium">View All</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term/Year</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollments</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for section in teaching_sections|slice:":3" %}
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ section.course.name }}</div>
+                        <div class="text-sm text-gray-500">{{ section.course.code }}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ section.section_code }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ section.term }} {{ section.year }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ section.enrollment_count }} students
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if section.is_active %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {% if section.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Exams (for students) -->
+{% if user.is_student and recent_exams %}
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Recent Exams</h3>
+        <a href="{% url 'exams:exam_list' %}" class="text-sm text-primary hover:text-primary-dark font-medium">View All</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                {% for result in recent_results|slice:":3" %}
+                {% for exam in recent_exams|slice:":3" %}
                 <tr>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ result.exam.title }}</div>
-                        <div class="text-sm text-gray-500">{{ result.exam.course.code }}</div>
+                        <div class="text-sm font-medium text-gray-900">{{ exam.title }}</div>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ result.completed_at|date:"M d, Y" }}
+                        {{ exam.sections.first.course.code }}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium 
-                        {% if result.score >= 80 %}text-green-600
-                        {% elif result.score >= 60 %}text-yellow-600
-                        {% else %}text-red-600{% endif %}">
-                        {{ result.score }}%
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ exam.end_date|date:"M d, Y H:i" }}
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if result.status == 'passed' %}bg-green-100 text-green-800
-                            {% elif result.status == 'failed' %}bg-red-100 text-red-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ result.get_status_display }}
+                        {% if exam in completed_exams_list %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Completed
                         </span>
-                    </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{% url 'exams:exam_result' result.id %}" class="text-indigo-600 hover:text-indigo-900">View Details</a>
+                        {% elif exam.is_active %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            Active
+                        </span>
+                        {% else %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Upcoming
+                        </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -528,10 +465,10 @@
 {% if user.is_superadmin or user.is_admin %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Recent Users -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+    <div class="bg-white rounded-lg shadow p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Recently Created Users</h3>
-            <a href="{% url 'core:user_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+            <a href="{% url 'user_list' %}" class="text-sm text-primary hover:text-primary-dark font-medium">View All</a>
         </div>
         <div class="space-y-4">
             {% for recent_user in recent_users|slice:":3" %}
@@ -556,10 +493,10 @@
     </div>
 
     <!-- Recent Logs -->
-    <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm card-hover">
+    <div class="bg-white rounded-lg shadow p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Recent Activity Logs</h3>
-            <a href="{% url 'core:admin_user_creation_log_list' %}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All</a>
+            <a href="{% url 'admin_user_creation_log_list' %}" class="text-sm text-primary hover:text-primary-dark font-medium">View All</a>
         </div>
         <div class="space-y-4">
             {% for log in creation_logs|slice:":3" %}

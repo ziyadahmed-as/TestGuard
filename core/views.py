@@ -14,14 +14,13 @@ from django.contrib.auth.views import LoginView
 
 from .models import (
     Institution, User, AdminUserCreationLog, UserImportTemplate, 
-    UserDeviceSession, ActiveExamSession, AcademicDepartment, 
-    Course, Section, Enrollment
+    UserDeviceSession, AcademicDepartment, Course, Section, Enrollment, Profile
 )
 from .forms import (
     InstitutionForm, UserForm, BulkUserUploadForm, AdminUserCreationLogForm,
-    UserImportTemplateForm, UserDeviceSessionForm, ActiveExamSessionForm,
-    AcademicDepartmentForm, CourseForm, SectionForm, EnrollmentForm,
-    UserFilterForm, InstitutionFilterForm
+    UserImportTemplateForm, UserDeviceSessionForm, AcademicDepartmentForm, 
+    CourseForm, SectionForm, EnrollmentForm, UserFilterForm, InstitutionFilterForm,
+    ProfileForm, AdminProfileUpdateForm  # Use the correct form name
 )
 
 # Custom Login View to handle redirects properly
@@ -31,13 +30,6 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         # Redirect to dashboard after successful login
         return reverse('dashboard')
-
-class CustomLogoutView(LoginView):
-    template_name = 'registration/logged_out.html'
-    next_page = 'login'
-    
-    def get_next_page(self):
-        return reverse('login')
 
 # Utility functions
 def is_superadmin(user):
@@ -139,7 +131,104 @@ def dashboard(request):
             is_active=True
         ).select_related('section__course', 'section__instructor')
     
-    return render(request, 'dashboard.html', context)
+    # Add this line to use the correct template path
+    return render(request, 'core/dashboard.html', context)
+
+# Profile Views
+@method_decorator(login_required, name='dispatch')
+class ProfileUpdateView(UpdateView):
+    model = Profile
+    form_class = ProfileForm
+    template_name = 'profile_form.html'
+    
+    def get_object(self):
+        # Users can only edit their own profile
+        return self.request.user.profile
+    
+    def get_success_url(self):
+        messages.success(self.request, 'Profile updated successfully.')
+        return reverse('profile_detail')
+
+@method_decorator(login_required, name='dispatch')
+class ProfileDetailView(DetailView):
+    model = Profile
+    template_name = 'profile_detail.html'
+    context_object_name = 'profile'
+    
+    def get_object(self):
+        # Users can only view their own profile unless they're admins
+        if 'pk' in self.kwargs and (self.request.user.is_admin or self.request.user.is_superadmin):
+            return get_object_or_404(Profile, pk=self.kwargs['pk'])
+        return self.request.user.profile
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can view any profile in their institution
+        if 'pk' in kwargs:
+            profile = get_object_or_404(Profile, pk=kwargs['pk'])
+            if not (request.user.is_superadmin or 
+                   (request.user.is_admin and profile.user.institution == request.user.institution)):
+                raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+@method_decorator(admin_required, name='dispatch')
+class ProfileAdminUpdateView(UpdateView):
+    model = Profile
+    form_class = AdminProfileUpdateForm
+    template_name = 'profile_admin_form.html'
+    
+    def get_success_url(self):
+        messages.success(self.request, 'Profile updated successfully.')
+        return reverse('profile_admin_detail', kwargs={'pk': self.object.pk})
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can only edit profiles in their institution unless they're superadmins
+        obj = self.get_object()
+        if not request.user.is_superadmin and obj.user.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+@method_decorator(admin_required, name='dispatch')
+class ProfileAdminDetailView(DetailView):
+    model = Profile
+    template_name = 'profile_admin_detail.html'
+    context_object_name = 'profile'
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Admins can only view profiles in their institution unless they're superadmins
+        obj = self.get_object()
+        if not request.user.is_superadmin and obj.user.institution != request.user.institution:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+@admin_required
+def profile_verify(request, pk):
+    profile = get_object_or_404(Profile, pk=pk)
+    
+    # Check if admin has permission to verify this profile
+    if not request.user.is_superadmin and profile.user.institution != request.user.institution:
+        raise PermissionDenied
+    
+    profile.is_verified = True
+    profile.verified_at = timezone.now()
+    profile.save()
+    
+    messages.success(request, 'Profile verified successfully.')
+    return redirect('profile_admin_detail', pk=profile.pk)
+
+@admin_required
+def profile_unverify(request, pk):
+    profile = get_object_or_404(Profile, pk=pk)
+    
+    # Check if admin has permission to unverify this profile
+    if not request.user.is_superadmin and profile.user.institution != request.user.institution:
+        raise PermissionDenied
+    
+    profile.is_verified = False
+    profile.verified_at = None
+    profile.save()
+    
+    messages.success(request, 'Profile verification removed successfully.')
+    return redirect('profile_admin_detail', pk=profile.pk)
 
 # Institution Views
 @method_decorator(superadmin_required, name='dispatch')
@@ -392,7 +481,7 @@ def bulk_user_upload(request):
         if form.is_valid():
             try:
                 # For non-superadmins, force the institution to be their own
-                if not request.user.is_superadmin:
+                if not request.user.is_admin or request.user.is_superadmin:
                     institution = request.user.institution
                 else:
                     institution = form.cleaned_data['institution']
@@ -1018,45 +1107,6 @@ def deactivate_device_session(request, pk):
     session.deactivate()
     messages.success(request, 'Device session deactivated successfully.')
     return redirect('device_sessions')
-
-# Exam Session Views (simplified for core functionality)
-@login_required
-def active_exam_sessions(request):
-    if request.user.is_student:
-        sessions = ActiveExamSession.objects.filter(
-            user=request.user,
-            is_active=True
-        ).select_related('exam')
-    else:
-        # For instructors/admins, show all active sessions in their institution
-        if request.user.is_superadmin:
-            sessions = ActiveExamSession.objects.filter(is_active=True).select_related('user', 'exam')
-        else:
-            sessions = ActiveExamSession.objects.filter(
-                user__institution=request.user.institution,
-                is_active=True
-            ).select_related('user', 'exam')
-    
-    return render(request, 'active_exam_sessions.html', {'sessions': sessions})
-
-@csrf_protect
-@require_http_methods(["POST"])
-@login_required
-def terminate_exam_session(request, pk):
-    session = get_object_or_404(ActiveExamSession, pk=pk)
-    
-    # Check permissions
-    if not (request.user.is_superadmin or 
-            (request.user.is_admin and session.user.institution == request.user.institution) or 
-            (request.user.is_instructor and session.user.institution == request.user.institution) or 
-            session.user == request.user):
-        raise PermissionDenied
-    
-    reason = request.POST.get('reason', 'Session terminated by user')
-    session.terminate(reason)
-    
-    messages.success(request, 'Exam session terminated successfully.')
-    return redirect('active_exam_sessions')
 
 # API Views for AJAX functionality
 @login_required

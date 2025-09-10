@@ -6,14 +6,14 @@ app_name = 'exams'
 
 urlpatterns = [
     # Exam URLs
-    path('exams/', views.ExamListView.as_view(), name='exam_list'),
-    path('exams/create/', views.ExamCreateView.as_view(), name='exam_create'),
-    path('exams/<int:pk>/', views.ExamDetailView.as_view(), name='exam_detail'),
-    path('exams/<int:pk>/update/', views.ExamUpdateView.as_view(), name='exam_update'),
-    path('exams/<int:pk>/delete/', views.ExamDeleteView.as_view(), name='exam_delete'),
-    path('exams/<int:pk>/toggle-publish/', views.exam_toggle_publish, name='exam_toggle_publish'),
-    path('exams/<int:exam_id>/report/', views.exam_report, name='exam_report'),
-    path('exams/<int:exam_id>/export-results/', views.export_exam_results, name='export_exam_results'),
+    path('', views.ExamListView.as_view(), name='exam_list'),
+    path('create/', views.ExamCreateView.as_view(), name='exam_create'),
+    path('<int:pk>/', views.ExamDetailView.as_view(), name='exam_detail'),
+    path('<int:pk>/update/', views.ExamUpdateView.as_view(), name='exam_update'),
+    path('<int:pk>/delete/', views.ExamDeleteView.as_view(), name='exam_delete'),
+    path('<int:pk>/toggle-status/', views.exam_toggle_status, name='exam_toggle_status'),
+    path('<int:exam_id>/report/', views.exam_report, name='exam_report'),
+    path('<int:exam_id>/export-results/', views.export_exam_results, name='export_exam_results'),
     
     # Question Bank URLs
     path('question-banks/', views.QuestionBankListView.as_view(), name='question_bank_list'),
@@ -31,11 +31,12 @@ urlpatterns = [
     # Exam Attempt URLs
     path('attempts/', views.ExamAttemptListView.as_view(), name='exam_attempt_list'),
     path('attempts/<int:pk>/', views.ExamAttemptDetailView.as_view(), name='exam_attempt_detail'),
-    path('attempts/<int:pk>/review/', views.ExamAttemptReviewView.as_view(), name='exam_attempt_review'),
+    path('attempts/<int:pk>/review/', views.ExamAttemptDetailView.as_view(), name='exam_attempt_review'),
     
     # Exam Taking URLs
-    path('exams/<int:exam_id>/start/', views.start_exam, name='start_exam'),
+    path('<int:exam_id>/start/', views.start_exam, name='start_exam'),
     path('attempts/<int:attempt_id>/take/', views.take_exam, name='take_exam'),
+    path('attempts/<int:attempt_id>/password/', views.exam_password, name='exam_password'),
     path('attempts/<int:attempt_id>/submit/', views.submit_exam, name='submit_exam'),
     
     # Monitoring URLs

@@ -8,7 +8,7 @@ from .models import (
 )
 from core.models import User, Section, Institution
 
-class BulkQuestionImportForm(forms.ModelForm):
+class BulkQuestionUploadForm(forms.ModelForm):
     """
     Form for uploading and processing bulk question imports with Tailwind styling
     """

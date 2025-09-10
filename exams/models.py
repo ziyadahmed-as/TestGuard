@@ -1050,19 +1050,19 @@ class ActiveExamSession(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='active_exam_sessions',
-        help_text="User with an active exam session"
+        related_name='exam_active_sessions',  # Ensure unique
+        help_text="User participating in the exam session"
     )
     exam = models.ForeignKey(
         Exam,
         on_delete=models.CASCADE,
-        related_name='active_sessions',
-        help_text="Exam being attempted"
+        related_name='exam_active_sessions',  # Ensure unique
+        help_text="Exam associated with this active session"
     )
-    attempt = models.ForeignKey(
+    attempt = models.OneToOneField(
         ExamAttempt,
         on_delete=models.CASCADE,
-        related_name='active_session',
+        related_name='exam_active_session',  # Ensure unique
         help_text="Specific exam attempt associated with this session"
     )
     device_session = models.ForeignKey(

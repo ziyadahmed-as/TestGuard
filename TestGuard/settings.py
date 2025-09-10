@@ -39,7 +39,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'exams',
-    'analytics',
     'django.contrib.humanize',
 ]
 

@@ -3,17 +3,18 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from .models import (
     Institution, User, AdminUserCreationLog, UserImportTemplate, 
-    UserDeviceSession, ActiveExamSession, AcademicDepartment, 
-    Course, Section, Enrollment
+    UserDeviceSession, AcademicDepartment, 
+    Course, Section, Enrollment, Profile
 )
 import csv
 from io import StringIO
 
-# Base form styling classes for consistency
-INPUT_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500'
-SELECT_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500'
-TEXTAREA_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500'
-CHECKBOX_CLASSES = 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'
+# Base form styling classes for consistency using Tailwind CSS
+INPUT_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent'
+SELECT_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent'
+TEXTAREA_CLASSES = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent'
+CHECKBOX_CLASSES = 'h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded'
+FILE_INPUT_CLASSES = 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100'
 
 class InstitutionForm(forms.ModelForm):
     class Meta:
@@ -35,12 +36,6 @@ class InstitutionForm(forms.ModelForm):
         help_texts = {
             'domain': 'Primary email domain for institutional authentication (e.g., example.edu)',
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
-            if field.help_text:
-                field.widget.attrs['class'] += ' has-help-text'
 
     def clean_domain(self):
         domain = self.cleaned_data.get('domain', '').lower().strip()
@@ -173,11 +168,159 @@ class UserForm(forms.ModelForm):
         return user
 
 
+class UserUpdateForm(forms.ModelForm):
+    """
+    Form for users to update their own information (excludes admin-only fields)
+    """
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+        widgets = {
+            'first_name': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'First name'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Last name'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make email display-only (not editable)
+        self.fields['email'] = forms.EmailField(
+            required=True,
+            disabled=True,
+            initial=self.instance.email,
+            widget=forms.EmailInput(attrs={
+                'class': INPUT_CLASSES + ' bg-gray-100 cursor-not-allowed',
+                'placeholder': 'user@example.com'
+            })
+        )
+class ProfileAdminForm(forms.ModelForm):
+    """
+    Form for administrators to update profile information (includes all fields)
+    """
+    class Meta:
+        model = Profile
+        fields = ['student_id', 'faculty', 'section', 'bio', 'image', 'phone', 'date_of_birth', 'is_verified', 'notes']
+        widgets = {
+            'student_id': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Student ID'
+            }),
+            'faculty': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Faculty name'
+            }),
+            'section': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Section'
+            }),
+            'bio': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASSES,
+                'rows': 4,
+                'placeholder': 'Tell us about yourself'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Phone number'
+            }),
+            'date_of_birth': forms.DateInput(attrs={
+                'class': INPUT_CLASSES,
+                'type': 'date'
+            }),
+            'is_verified': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CLASSES
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASSES,
+                'rows': 3,
+                'placeholder': 'Administrative notes'
+            }),
+        }
+
+class ProfileForm(forms.ModelForm):
+    """
+    Form for users to update their profile information (excludes admin-only fields)
+    """
+    class Meta:
+        model = Profile
+        fields = ['bio', 'image', 'phone', 'date_of_birth']
+        widgets = {
+            'bio': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASSES,
+                'rows': 4,
+                'placeholder': 'Tell us about yourself'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Phone number'
+            }),
+            'date_of_birth': forms.DateInput(attrs={
+                'class': INPUT_CLASSES,
+                'type': 'date'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove admin-only fields from the form
+        for field_name in ['student_id', 'faculty', 'section', 'is_verified', 'notes']:
+            if field_name in self.fields:
+                del self.fields[field_name]
+
+
+class AdminProfileUpdateForm(forms.ModelForm):
+    """
+    Form for administrators to update profile information (includes all fields)
+    """
+    class Meta:
+        model = Profile
+        fields = ['student_id', 'faculty', 'section', 'bio', 'image', 'phone', 'date_of_birth', 'is_verified', 'notes']
+        widgets = {
+            'student_id': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Student ID'
+            }),
+            'faculty': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Faculty name'
+            }),
+            'section': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Section'
+            }),
+            'bio': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASSES,
+                'rows': 4,
+                'placeholder': 'Tell us about yourself'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': INPUT_CLASSES,
+                'placeholder': 'Phone number'
+            }),
+            'date_of_birth': forms.DateInput(attrs={
+                'class': INPUT_CLASSES,
+                'type': 'date'
+            }),
+            'is_verified': forms.CheckboxInput(attrs={
+                'class': CHECKBOX_CLASSES
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASSES,
+                'rows': 3,
+                'placeholder': 'Administrative notes'
+            }),
+        }
+
+
 class BulkUserUploadForm(forms.Form):
     csv_file = forms.FileField(
         label="CSV File",
         widget=forms.FileInput(attrs={
-            'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+            'class': FILE_INPUT_CLASSES,
         }),
         help_text="Upload a CSV file with user data. Required columns: email, first_name, last_name, role"
     )
@@ -275,7 +418,7 @@ class UserImportTemplateForm(forms.ModelForm):
                 'placeholder': 'Describe this template'
             }),
             'template_file': forms.FileInput(attrs={
-                'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+                'class': FILE_INPUT_CLASSES,
             }),
             'required_fields': forms.Textarea(attrs={
                 'class': TEXTAREA_CLASSES,
@@ -333,33 +476,6 @@ class UserDeviceSessionForm(forms.ModelForm):
                 'class': TEXTAREA_CLASSES,
                 'rows': 2,
                 'placeholder': 'User agent string'
-            }),
-        }
-
-
-class ActiveExamSessionForm(forms.ModelForm):
-    class Meta:
-        model = ActiveExamSession
-        fields = ['user', 'exam', 'device_session', 'attempt', 'session_token', 'is_active']
-        widgets = {
-            'user': forms.Select(attrs={
-                'class': SELECT_CLASSES
-            }),
-            'exam': forms.Select(attrs={
-                'class': SELECT_CLASSES
-            }),
-            'device_session': forms.Select(attrs={
-                'class': SELECT_CLASSES
-            }),
-            'attempt': forms.Select(attrs={
-                'class': SELECT_CLASSES
-            }),
-            'session_token': forms.TextInput(attrs={
-                'class': INPUT_CLASSES,
-                'placeholder': 'Session token'
-            }),
-            'is_active': forms.CheckboxInput(attrs={
-                'class': CHECKBOX_CLASSES
             }),
         }
 
